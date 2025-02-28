@@ -14,7 +14,7 @@ This package is a simple implementation of a Laravel package that helps you crea
 
 ## Installation
 Install the package via composer:
-``` composer require thachvd/laravel-site-controller-api```
+``` composer require thachvd/laravel-site-controller-api-naif```
 
 in Laravel old version maybe you need to add service provider to config/app.php
 ```
@@ -28,7 +28,7 @@ run command:
 run command:
 ```php artisan migrate ```
 
-Add env key and value from packages/thachvd/laravel-site-controller-api/src/.env.example to .env
+Add env key and value from packages/thachvd/laravel-site-controller-api-naif/src/.env.example to .env
 
 ## Testing
 You can download postman collection in path ``` thachvd/laravel-site-controller-api/src/postman/Laravel Site Controller API Package.postman_collection.json ``` and run server ``` php artisan serve ``` then test it.
