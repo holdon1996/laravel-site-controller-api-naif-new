@@ -35,7 +35,7 @@ class FormatSoapArrayBody
     }
 
     //API 共通オプションマスタ
-    public function getArrayPreBookingBody($request)
+    public function getArrayEntryBookingBody($request)
     {
         $dataRequest = [
             'extendLincoln' => [
@@ -165,6 +165,21 @@ class FormatSoapArrayBody
                         'RoomAndGuest' => $request['RoomAndGuest'],
                     ],
                 ],
+            ],
+        ];
+        return $dataRequest;
+    }
+
+    //API cancel booking
+    public function getArrayCancelBookingBody($request)
+    {
+        $dataRequest = [
+            'bookingInfo' => [
+                'tllHotelCode' => $request['tllHotelCode'] ?? '',
+                'tllBookingNumber' => $request['tllBookingNumber'] ?? '',
+                'DataID' => $request['DataID'] ?? '',
+                'CancellationCharge' => $request['CancellationCharge'] ?? '',
+                'CancellationNotice' => $request['CancellationNotice'] ?? '',
             ],
         ];
         return $dataRequest;

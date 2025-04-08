@@ -304,7 +304,9 @@ class TlLincolnSoapService
         $url     = config('sc.tllincoln_api.check_pre_booking_url');
         $command = 'preBooking';
 
-        $response = $this->processBooking($url, $command, $request);
+        $dataRequest = $this->formatSoapArrayBody->getArrayEntryBookingBody($request);
+
+        $response = $this->processBooking($url, $command, $dataRequest);
 
         return $response;
     }
@@ -318,7 +320,9 @@ class TlLincolnSoapService
         $url     = config('sc.tllincoln_api.entry_booking_url');
         $command = 'entryBooking';
 
-        $response = $this->processBooking($url, $command, $request);
+        $dataRequest = $this->formatSoapArrayBody->getArrayEntryBookingBody($request);
+
+        $response = $this->processBooking($url, $command, $dataRequest);
 
         return $response;
     }
@@ -332,7 +336,9 @@ class TlLincolnSoapService
         $url     = config('sc.tllincoln_api.cancel_booking_url');
         $command = 'deleteBookingWithCP';
 
-        $response = $this->processBooking($url, $command, $request);
+        $dataRequest = $this->formatSoapArrayBody->getArrayCancelBookingBody($request);
+
+        $response = $this->processBooking($url, $command, $dataRequest);
 
         return $response;
     }
