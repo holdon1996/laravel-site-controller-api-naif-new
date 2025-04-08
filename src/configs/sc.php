@@ -20,6 +20,9 @@ return [
         'command_cancel_booking' => env('SC_TLLINCOLN_URL_SOAP_API') . 'deleteBookingWithCP',
         'get_master_url' => env('SC_TLLINCOLN_MASTER_DOWNLOAD_URL'),
         'get_partial_url' => env('SC_TLLINCOLN_PARTIAL_DOWNLOAD_URL'),
+        'search_room_type' => 'search_room_type',
+        'search_plan' => 'search_plan',
+        'search_read_option' => 'search_read_option',
         'api_file_type_const' => [
             'file_master_hotel' => 11,
             'file_master_room_type' => 12,
@@ -47,6 +50,9 @@ return [
                 ],
                 'naif_booking' => [
                     'url' => 'http://naifc3000.naifc30.nai.lincoln.seanuts.co.jp/',
+                ],
+                'naif_6000' => [
+                    'url' => 'http://naifc6000.naifc60.nai.lincoln.seanuts.co.jp/',
                 ],
             ]
         ],
