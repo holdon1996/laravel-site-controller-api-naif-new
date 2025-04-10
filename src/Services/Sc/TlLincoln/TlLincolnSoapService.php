@@ -8,6 +8,7 @@ use ThachVd\LaravelSiteControllerApi\Services\Sc\Xml2Array\Xml2Array;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
+use ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln\FormatSoapArrayBody;
 
 /**
  *
@@ -22,15 +23,25 @@ class TlLincolnSoapService
      * @var TlLincolnSoapBody
      */
     protected $tlLincolnSoapBody;
+    /**
+     * @var FormatSoapArrayBody
+     */
+    protected $formatSoapArrayBody;
 
     /**
      * @param TlLincolnSoapClient $tlLincolnSoapClient
      * @param TlLincolnSoapBody $tlLincolnSoapBody
+     * @param FormatSoapArrayBody $formatSoapArrayBody
      */
-    public function __construct(TlLincolnSoapClient $tlLincolnSoapClient, TlLincolnSoapBody $tlLincolnSoapBody)
+    public function __construct(
+        TlLincolnSoapClient $tlLincolnSoapClient, 
+        TlLincolnSoapBody $tlLincolnSoapBody,
+        FormatSoapArrayBody $formatSoapArrayBody
+    )
     {
         $this->tlLincolnSoapClient = $tlLincolnSoapClient;
         $this->tlLincolnSoapBody   = $tlLincolnSoapBody;
+        $this->formatSoapArrayBody   = $formatSoapArrayBody;
     }
 
     /**
@@ -47,10 +58,8 @@ class TlLincolnSoapService
         }
 
         $command = 'roomAvailabilitySalesSts';
-        // set header request
-        $this->tlLincolnSoapClient->setHeaders();
         // set body request
-        $this->setEmptyRoomSoapRequest($dateValidation, $request);
+        $this->setEmptyRoomSoapRequest($dateValidation, $request, $command);
 
         try {
             $url        = config('sc.tllincoln_api.get_empty_room_url');
@@ -107,10 +116,8 @@ class TlLincolnSoapService
     public function getBulkEmptyRoom(Request $request)
     {
         $command = 'roomAvailabilityAllSalesSts';
-        // set header request
-        $this->tlLincolnSoapClient->setHeaders();
         // set body request
-        $this->setBulkEmptyRoomSoapRequest($request);
+        $this->setBulkEmptyRoomSoapRequest($request, $command);
         try {
             $url        = config('sc.tllincoln_api.get_empty_room_series_url');
             $soapApiLog = [
@@ -170,10 +177,8 @@ class TlLincolnSoapService
         }
 
         $command = 'planPriceInfoAcquisition';
-        // set header request
-        $this->tlLincolnSoapClient->setHeaders();
         // set body request
-        $this->setPricePlanSoapRequest($dateValidation, $request);
+        $this->setPricePlanSoapRequest($dateValidation, $request, $command);
 
         try {
             $url        = config('sc.tllincoln_api.get_plan_price_url');
@@ -229,10 +234,8 @@ class TlLincolnSoapService
     public function getBulkPricePlan(Request $request)
     {
         $command = 'planPriceInfoAcquisitionAll';
-        // set header request
-        $this->tlLincolnSoapClient->setHeaders();
         // set body request
-        $this->setBulkPricePlanSoapRequest($request);
+        $this->setBulkPricePlanSoapRequest($request, $command);
 
         try {
             $url        = config('sc.tllincoln_api.get_plan_price_series_url');
@@ -301,7 +304,9 @@ class TlLincolnSoapService
         $url     = config('sc.tllincoln_api.check_pre_booking_url');
         $command = 'preBooking';
 
-        $response = $this->processBooking($url, $command, $request);
+        $dataRequest = $this->formatSoapArrayBody->getArrayEntryBookingBody($request);
+
+        $response = $this->processBooking($url, $command, $dataRequest);
 
         return $response;
     }
@@ -315,7 +320,9 @@ class TlLincolnSoapService
         $url     = config('sc.tllincoln_api.entry_booking_url');
         $command = 'entryBooking';
 
-        $response = $this->processBooking($url, $command, $request);
+        $dataRequest = $this->formatSoapArrayBody->getArrayEntryBookingBody($request);
+
+        $response = $this->processBooking($url, $command, $dataRequest);
 
         return $response;
     }
@@ -329,38 +336,11 @@ class TlLincolnSoapService
         $url     = config('sc.tllincoln_api.cancel_booking_url');
         $command = 'deleteBookingWithCP';
 
-        $response = $this->processBooking($url, $command, $request);
+        $dataRequest = $this->formatSoapArrayBody->getArrayCancelBookingBody($request);
+
+        $response = $this->processBooking($url, $command, $dataRequest);
 
         return $response;
-    }
-
-    /**
-     * Prepare TLL Soap Body
-     *
-     * @param $command
-     * @param array $dataRequest
-     * @return void
-     */
-    public function prepareTllSoapBody($command, $dataRequest)
-    {
-        $tllincolnAccount = TllincolnAccount::first();
-        $userInfo         = [
-            'agtId'       => $tllincolnAccount->agt_id,
-            'agtPassword' => $tllincolnAccount->agt_password
-        ];
-        $this->tlLincolnSoapBody->setMainBodyWrapSection($command . 'Request');
-        $xmlnsType       = config('sc.tllincoln_api.xml.xmlns_type');
-        $xmlnsVersionKey = "sc.tllincoln_api.xml.$xmlnsType.$xmlnsType" . '_booking';
-        $xmlnsVersion    = config($xmlnsVersionKey);
-        $body            = $this->tlLincolnSoapBody->generateBody(
-            $command,
-            $dataRequest,
-            $xmlnsType,
-            $xmlnsVersion,
-            $userInfo
-        );
-        $this->tlLincolnSoapClient->setHeaders();
-        $this->tlLincolnSoapClient->setBody($body);
     }
 
     /**
@@ -371,7 +351,8 @@ class TlLincolnSoapService
      */
     public function processBooking($url, $command, $request)
     {
-        $this->prepareTllSoapBody($command, $request);
+        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_booking';
+        $this->setSoapRequest($request, $command, $naifVersion);
         try {
             $isWriteLog = config('sc.is_write_log');
             $soapApiLog = [
@@ -437,6 +418,374 @@ class TlLincolnSoapService
     }
 
     /**
+     * @param array $dateValidation
+     * @param Request $request
+     * @return void
+     */
+    public function setEmptyRoomSoapRequest(array $dateValidation, Request $request, $command): void
+    {
+        $startDay       = $dateValidation['startDay'];
+        $endDay         = $dateValidation['endDay'];
+        $perRmPaxCount  = $request->input('person_number');
+        $tllHotelCode   = $request->input('tllHotelCode');
+        $tllRmTypeCode  = $request->input('tllRmTypeCode');
+        $tllRmTypeInfos = [];
+
+        if (!is_array($tllRmTypeCode)) {
+            $tllRmTypeInfos['tllRmTypeCode'] = $tllRmTypeCode;
+        } else {
+            foreach ($tllRmTypeCode as $item) {
+                $tllRmTypeInfos[] = ['tllRmTypeCode' => $item];
+            }
+        }
+
+        $dataRequest = [
+            'extractionRequest' => [
+                'startDay'      => $startDay,
+                'endDay'        => $endDay,
+                'perRmPaxCount' => $perRmPaxCount,
+            ],
+            'hotelInfos'        => [
+                'tllHotelCode'   => $tllHotelCode,
+                'tllRmTypeInfos' => $tllRmTypeInfos
+            ]
+        ];
+
+        $this->setSoapRequest($dataRequest, $command);
+    }
+
+    /**
+     * @param Request $request
+     * @return void
+     */
+    public function setBulkEmptyRoomSoapRequest(Request $request, $command): void
+    {
+        $tllHotelCode   = $request->input('tllHotelCode');
+        $tllRmTypeCode  = $request->input('tllRmTypeCode');
+        $tllRmTypeInfos = [];
+
+        if (!is_array($tllRmTypeCode)) {
+            $tllRmTypeInfos['tllRmTypeCode'] = $tllRmTypeCode;
+        } else {
+            foreach ($tllRmTypeCode as $item) {
+                $tllRmTypeInfos[] = ['tllRmTypeCode' => $item];
+            }
+        }
+
+        $dataRequest = [
+            'hotelInfos' => [
+                'tllHotelCode'   => $tllHotelCode,
+                'tllRmTypeInfos' => $tllRmTypeInfos
+            ]
+        ];
+
+        $this->setSoapRequest($dataRequest, $command);
+    }
+
+    /**
+     * @param array $dateValidation
+     * @param Request $request
+     * @return void
+     */
+    public function setPricePlanSoapRequest(array $dateValidation, Request $request, $command): void
+    {
+        $startDay      = $dateValidation['startDay'];
+        $endDay        = $dateValidation['endDay'];
+        $minPrice      = $request->input('min_price');
+        $maxPrice      = $request->input('max_price');
+        $perPaxCount   = $request->input('person_number');
+        $tllHotelCode  = $request->input('tllHotelCode');
+        $tllRmTypeCode = $request->input('tllRmTypeCode');
+        $tllPlanCode   = $request->input('tllPlanCode');
+        $tllPlanInfos  = [];
+        if (!is_array($tllPlanCode)) {
+            $tllPlanInfos['tllPlanCode'] = $tllPlanCode;
+        } else {
+            foreach ($tllPlanCode as $item) {
+                $tllPlanInfos[] = ['tllPlanCode' => $item];
+            }
+        }
+        if (!is_array($tllRmTypeCode)) {
+            $tllPlanInfos['tllRmTypeCode'] = $tllRmTypeCode;
+        } else {
+            foreach ($tllRmTypeCode as $item) {
+                $tllPlanInfos[] = ['tllRmTypeCode' => $item];
+            }
+        }
+
+        $dataRequest = [
+            'extractionRequest' => [
+                'startDay'    => $startDay,
+                'endDay'      => $endDay,
+                'minPrice'    => $minPrice,
+                'maxPrice'    => $maxPrice,
+                'perPaxCount' => $perPaxCount
+            ],
+            'hotelInfos'        => [
+                'tllHotelCode' => $tllHotelCode,
+                'tllPlanInfos' => $tllPlanInfos
+            ]
+        ];
+
+        $this->setSoapRequest($dataRequest, $command);
+    }
+
+    /**
+     * @param Request $request
+     * @return void
+     */
+    public function setBulkPricePlanSoapRequest(Request $request, $command): void
+    {
+        $tllHotelCode  = $request->input('tllHotelCode');
+        $tllRmTypeCode = $request->input('tllRmTypeCode');
+        $tllPlanCode   = $request->input('tllPlanCode');
+
+        $tllRmTypeInfos = [];
+        if (!is_array($tllRmTypeCode)) {
+            $tllRmTypeInfos['tllRmTypeCode'] = $tllRmTypeCode;
+            $tllRmTypeInfos['tllPlanCode']   = $tllPlanCode;
+        } else {
+            foreach ($tllRmTypeCode as $item) {
+                $tllRmTypeInfos[] = ['tllRmTypeCode' => $item, 'tllPlanCode' => $tllPlanCode];
+            }
+        }
+
+        $dataRequest = [
+            'hotelInfos' => [
+                'tllHotelCode' => $tllHotelCode,
+                'tllPlanInfos' => $tllRmTypeInfos
+            ]
+        ];
+
+        $this->setSoapRequest($dataRequest, $command);
+    }
+
+    /**
+     * search room type
+     * @param Request $request
+     * @return void
+     */
+    public function searchRoomType($request)
+    {
+        $isWriteLog = config('sc.is_write_log');
+        $command    = 'readRmType';
+        // set header request
+        $this->tlLincolnSoapClient->setHeaders();
+        // set body request
+        $dataRequest = $this->formatSoapArrayBody->getArrayRoomTypeAndPlanBody($request);
+        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
+        $this->setSoapRequest($dataRequest, $command, $naifVersion);
+
+        try {
+            $url        = config('sc.tllincoln_api.search_room_type');
+            $soapApiLog = [
+                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
+                'url'     => $url,
+                'command' => $command,
+                "request" => $this->tlLincolnSoapClient->getBody(),
+            ];
+            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
+            $data       = [];
+            $success    = true;
+
+            if ($response !== null) {
+                $arrRooms = $this->tlLincolnSoapClient->convertResponeToArray($response);
+                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'])) {
+                    $data['timeInfo'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'];
+                }
+                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'])) {
+                    $data['hotelInfos'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'];
+                }
+            } else {
+                $success = false;
+            }
+
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $response;
+                $soapApiLog['is_success'] = $success;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success'     => $success,
+                'data'        => $data,
+                'xmlResponse' => $response
+            ]);
+        } catch (\Exception $e) {
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $e->getMessage();
+                $soapApiLog['is_success'] = false;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * search plan
+     * @param Request $request
+     * @return void
+     */
+    public function searchPlan($request)
+    {
+        $isWriteLog = config('sc.is_write_log');
+        $command    = 'readPlan';
+        // set header request
+        $this->tlLincolnSoapClient->setHeaders();
+        // set body request
+        $dataRequest = $this->formatSoapArrayBody->getArrayRoomTypeAndPlanBody($request);
+        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
+        $this->setSoapRequest($dataRequest, $command, $naifVersion);
+
+        try {
+            $url        = config('sc.tllincoln_api.search_plan');
+            $soapApiLog = [
+                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
+                'url'     => $url,
+                'command' => $command,
+                "request" => $this->tlLincolnSoapClient->getBody(),
+            ];
+            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
+            $data       = [];
+            $success    = true;
+
+            if ($response !== null) {
+                $arrRooms = $this->tlLincolnSoapClient->convertResponeToArray($response);
+                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'])) {
+                    $data['timeInfo'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'];
+                }
+                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'])) {
+                    $data['hotelInfos'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'];
+                }
+            } else {
+                $success = false;
+            }
+
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $response;
+                $soapApiLog['is_success'] = $success;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success'     => $success,
+                'data'        => $data,
+                'xmlResponse' => $response
+            ]);
+        } catch (\Exception $e) {
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $e->getMessage();
+                $soapApiLog['is_success'] = false;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * read option
+     * @param Request $request
+     * @return void
+     */
+    public function searchReadOption($request)
+    {
+        $isWriteLog = config('sc.is_write_log');
+        $command    = 'readOption';
+        // set header request
+        $this->tlLincolnSoapClient->setHeaders();
+        // set body request
+        $dataRequest = $this->formatSoapArrayBody->getArrayReadOptionBody($request);
+        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
+        $this->setSoapRequest($dataRequest, $command, $naifVersion);
+
+        try {
+            $url        = config('sc.tllincoln_api.search_read_option');
+            $soapApiLog = [
+                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
+                'url'     => $url,
+                'command' => $command,
+                "request" => $this->tlLincolnSoapClient->getBody(),
+            ];
+            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
+            $data       = [];
+            $success    = true;
+
+            if ($response !== null) {
+                $arrRooms = $this->tlLincolnSoapClient->convertResponeToArray($response);
+                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'])) {
+                    $data['hotelInfos'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'];
+                }
+            } else {
+                $success = false;
+            }
+
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $response;
+                $soapApiLog['is_success'] = $success;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success'     => $success,
+                'data'        => $data,
+                'xmlResponse' => $response
+            ]);
+        } catch (\Exception $e) {
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $e->getMessage();
+                $soapApiLog['is_success'] = false;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * @param $dataRequest
+     * @param $setMainBodyWrapSection
+     * @return void
+     */
+    public function setSoapRequest($dataRequest, $setMainBodyWrapSection, $versionNaif = null)
+    {
+        //set header request
+        $this->tlLincolnSoapClient->setHeaders();
+        //set param common request
+        $this->tlLincolnSoapBody->setMainBodyWrapSection($setMainBodyWrapSection . 'Request');
+        $tllincolnAccount = TllincolnAccount::first();
+        $userInfo         = [
+            'agtId'       => $tllincolnAccount->agt_id,
+            'agtPassword' => $tllincolnAccount->agt_password
+        ];
+        if ($versionNaif == null) {
+            $versionNaif = config('sc.tllincoln_api.xml.xmlns_type') . '_common';
+        }
+        $xmlnsType        = config('sc.tllincoln_api.xml.xmlns_type');
+        $xmlnsVersionKey  = "sc.tllincoln_api.xml.$xmlnsType.$versionNaif";
+        $xmlnsVersion     = config($xmlnsVersionKey);
+        $body             = $this->tlLincolnSoapBody->generateBody(
+            $setMainBodyWrapSection,
+            $dataRequest,
+            $xmlnsType,
+            $xmlnsVersion,
+            $userInfo
+        );
+        //set body request
+        $this->tlLincolnSoapClient->setBody($body);
+    }
+
+    /**
      * @param Request $request
      * @return array|\Illuminate\Http\JsonResponse
      */
@@ -477,216 +826,5 @@ class TlLincolnSoapService
         }
 
         return compact('startDay', 'endDay');
-    }
-
-    /**
-     * @param array $dateValidation
-     * @param Request $request
-     * @return void
-     */
-    public function setEmptyRoomSoapRequest(array $dateValidation, Request $request): void
-    {
-        $startDay       = $dateValidation['startDay'];
-        $endDay         = $dateValidation['endDay'];
-        $perRmPaxCount  = $request->input('person_number');
-        $tllHotelCode   = $request->input('tllHotelCode');
-        $tllRmTypeCode  = $request->input('tllRmTypeCode');
-        $tllRmTypeInfos = [];
-
-        if (!is_array($tllRmTypeCode)) {
-            $tllRmTypeInfos['tllRmTypeCode'] = $tllRmTypeCode;
-        } else {
-            foreach ($tllRmTypeCode as $item) {
-                $tllRmTypeInfos[] = ['tllRmTypeCode' => $item];
-            }
-        }
-
-        $dataRequest = [
-            'extractionRequest' => [
-                'startDay'      => $startDay,
-                'endDay'        => $endDay,
-                'perRmPaxCount' => $perRmPaxCount,
-            ],
-            'hotelInfos'        => [
-                'tllHotelCode'   => $tllHotelCode,
-                'tllRmTypeInfos' => $tllRmTypeInfos
-            ]
-        ];
-
-        $this->tlLincolnSoapBody->setMainBodyWrapSection('roomAvailabilitySalesStsRequest');
-        $tllincolnAccount = TllincolnAccount::first();
-        $userInfo         = [
-            'agtId'       => $tllincolnAccount->agt_id,
-            'agtPassword' => $tllincolnAccount->agt_password
-        ];
-        $xmlnsType        = config('sc.tllincoln_api.xml.xmlns_type');
-        $xmlnsVersionKey  = "sc.tllincoln_api.xml.$xmlnsType.$xmlnsType" . '_common';
-        $xmlnsVersion     = config($xmlnsVersionKey);
-        $body             = $this->tlLincolnSoapBody->generateBody(
-            'roomAvailabilitySalesSts',
-            $dataRequest,
-            $xmlnsType,
-            $xmlnsVersion,
-            $userInfo
-        );
-        $this->tlLincolnSoapClient->setBody($body);
-    }
-
-    /**
-     * @param Request $request
-     * @return void
-     */
-    public function setBulkEmptyRoomSoapRequest(Request $request): void
-    {
-        $tllHotelCode   = $request->input('tllHotelCode');
-        $tllRmTypeCode  = $request->input('tllRmTypeCode');
-        $tllRmTypeInfos = [];
-
-        if (!is_array($tllRmTypeCode)) {
-            $tllRmTypeInfos['tllRmTypeCode'] = $tllRmTypeCode;
-        } else {
-            foreach ($tllRmTypeCode as $item) {
-                $tllRmTypeInfos[] = ['tllRmTypeCode' => $item];
-            }
-        }
-
-        $dataRequest = [
-            'hotelInfos' => [
-                'tllHotelCode'   => $tllHotelCode,
-                'tllRmTypeInfos' => $tllRmTypeInfos
-            ]
-        ];
-
-        $this->tlLincolnSoapBody->setMainBodyWrapSection('roomAvailabilityAllSalesStsRequest');
-        $tllincolnAccount = TllincolnAccount::first();
-        $userInfo         = [
-            'agtId'       => $tllincolnAccount->agt_id,
-            'agtPassword' => $tllincolnAccount->agt_password
-        ];
-        $xmlnsType        = config('sc.tllincoln_api.xml.xmlns_type');
-        $xmlnsVersionKey  = "sc.tllincoln_api.xml.$xmlnsType.$xmlnsType" . '_common';
-        $xmlnsVersion     = config($xmlnsVersionKey);
-
-        $body = $this->tlLincolnSoapBody->generateBody(
-            'roomAvailabilityAllSalesSts',
-            $dataRequest,
-            $xmlnsType,
-            $xmlnsVersion,
-            $userInfo
-        );
-        $this->tlLincolnSoapClient->setBody($body);
-    }
-
-    /**
-     * @param array $dateValidation
-     * @param Request $request
-     * @return void
-     */
-    public function setPricePlanSoapRequest(array $dateValidation, Request $request): void
-    {
-        $startDay      = $dateValidation['startDay'];
-        $endDay        = $dateValidation['endDay'];
-        $minPrice      = $request->input('min_price');
-        $maxPrice      = $request->input('max_price');
-        $perPaxCount   = $request->input('person_number');
-        $tllHotelCode  = $request->input('tllHotelCode');
-        $tllRmTypeCode = $request->input('tllRmTypeCode');
-        $tllPlanCode   = $request->input('tllPlanCode');
-        $tllPlanInfos  = [];
-        if (!is_array($tllPlanCode)) {
-            $tllPlanInfos['tllPlanCode'] = $tllPlanCode;
-        } else {
-            foreach ($tllPlanCode as $item) {
-                $tllPlanInfos[] = ['tllPlanCode' => $item];
-            }
-        }
-        if (!is_array($tllRmTypeCode)) {
-            $tllPlanInfos['tllRmTypeCode'] = $tllRmTypeCode;
-        } else {
-            foreach ($tllRmTypeCode as $item) {
-                $tllPlanInfos[] = ['tllRmTypeCode' => $item];
-            }
-        }
-
-        $dataRequest = [
-            'extractionRequest' => [
-                'startDay'    => $startDay,
-                'endDay'      => $endDay,
-                'minPrice'    => $minPrice,
-                'maxPrice'    => $maxPrice,
-                'perPaxCount' => $perPaxCount
-            ],
-            'hotelInfos'        => [
-                'tllHotelCode' => $tllHotelCode,
-                'tllPlanInfos' => $tllPlanInfos
-            ]
-        ];
-
-
-        $this->tlLincolnSoapBody->setMainBodyWrapSection('planPriceInfoAcquisitionRequest');
-        $tllincolnAccount = TllincolnAccount::first();
-        $userInfo         = [
-            'agtId'       => $tllincolnAccount->agt_id,
-            'agtPassword' => $tllincolnAccount->agt_password
-        ];
-        $xmlnsType        = config('sc.tllincoln_api.xml.xmlns_type');
-        $xmlnsVersionKey  = "sc.tllincoln_api.xml.$xmlnsType.$xmlnsType" . '_common';
-        $xmlnsVersion     = config($xmlnsVersionKey);
-        $body             = $this->tlLincolnSoapBody->generateBody(
-            'planPriceInfoAcquisition',
-            $dataRequest,
-            $xmlnsType,
-            $xmlnsVersion,
-            $userInfo
-        );
-        $this->tlLincolnSoapClient->setBody($body);
-    }
-
-    /**
-     * @param Request $request
-     * @return void
-     */
-    public function setBulkPricePlanSoapRequest(Request $request): void
-    {
-        $tllHotelCode  = $request->input('tllHotelCode');
-        $tllRmTypeCode = $request->input('tllRmTypeCode');
-        $tllPlanCode   = $request->input('tllPlanCode');
-        $dateNow       = Carbon::now();
-
-        $tllRmTypeInfos = [];
-        if (!is_array($tllRmTypeCode)) {
-            $tllRmTypeInfos['tllRmTypeCode'] = $tllRmTypeCode;
-            $tllRmTypeInfos['tllPlanCode']   = $tllPlanCode;
-        } else {
-            foreach ($tllRmTypeCode as $item) {
-                $tllRmTypeInfos[] = ['tllRmTypeCode' => $item, 'tllPlanCode' => $tllPlanCode];
-            }
-        }
-
-        $dataRequest = [
-            'hotelInfos' => [
-                'tllHotelCode' => $tllHotelCode,
-                'tllPlanInfos' => $tllRmTypeInfos
-            ]
-        ];
-
-
-        $this->tlLincolnSoapBody->setMainBodyWrapSection('planPriceInfoAcquisitionAllRequest');
-        $tllincolnAccount = TllincolnAccount::first();
-        $userInfo         = [
-            'agtId'       => $tllincolnAccount->agt_id,
-            'agtPassword' => $tllincolnAccount->agt_password
-        ];
-        $xmlnsType        = config('sc.tllincoln_api.xml.xmlns_type');
-        $xmlnsVersionKey  = "sc.tllincoln_api.xml.$xmlnsType.$xmlnsType" . '_common';
-        $xmlnsVersion     = config($xmlnsVersionKey);
-        $body             = $this->tlLincolnSoapBody->generateBody(
-            'planPriceInfoAcquisitionAll',
-            $dataRequest,
-            $xmlnsType,
-            $xmlnsVersion,
-            $userInfo
-        );
-        $this->tlLincolnSoapClient->setBody($body);
     }
 }
