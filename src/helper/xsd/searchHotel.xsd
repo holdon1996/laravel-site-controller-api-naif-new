@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+
+  <xs:element name="OTA_HotelSearchRQ">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Criteria">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Criterion">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="Address" minOccurs="0">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="AddressLine" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+
+                    <xs:element name="Telephone" minOccurs="0">
+                      <xs:complexType>
+                        <xs:attribute name="PhoneTechType" use="required">
+                          <xs:simpleType>
+                            <xs:restriction base="xs:string">
+                              <xs:enumeration value="1"/>
+                              <xs:enumeration value="3"/>
+                            </xs:restriction>
+                          </xs:simpleType>
+                        </xs:attribute>
+                        <xs:attribute name="PhoneNumber" type="xs:string" use="required"/>
+                      </xs:complexType>
+                    </xs:element>
+
+                    <xs:element name="HotelRef">
+                      <xs:complexType>
+                        <xs:attribute name="HotelCode" type="xs:string" use="required"/>
+                        <xs:attribute name="HotelName" type="xs:string" use="optional"/>
+                        <xs:attribute name="HotelCodeContext" type="xs:string" use="optional"/>
+                      </xs:complexType>
+                    </xs:element>
+
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="Version" type="xs:decimal"/>
+        <xs:element name="PrimaryLangID" type="xs:string"/>
+        <xs:element name="ResponseType" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

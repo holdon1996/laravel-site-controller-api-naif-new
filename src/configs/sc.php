@@ -23,6 +23,8 @@ return [
         'search_room_type' => 'search_room_type',
         'search_plan' => 'search_plan',
         'search_read_option' => 'search_read_option',
+        'hotel_avail' => 'hotel_avail',
+        'hotel_description' => 'hotel_avail',
         'api_file_type_const' => [
             'file_master_hotel' => 11,
             'file_master_room_type' => 12,
@@ -66,4 +68,5 @@ return [
         'sales_office_name' => 'Test', //TODO change
         'using_plan_tllincoln' => 0,
     ],
+    'file_xsd_patch' => 'app/helper/xsd/',
 ];
