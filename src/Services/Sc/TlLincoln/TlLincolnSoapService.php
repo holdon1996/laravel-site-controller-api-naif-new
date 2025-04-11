@@ -827,66 +827,6 @@ class TlLincolnSoapService
     }
 
     /**
-     * hotel avail
-     * @param Request $request
-     * @return void
-     */
-    public function hotelAvail(Request $request)
-    {
-        $isWriteLog = config('sc.is_write_log');
-        $command    = 'hotelAvail';
-
-        $xsdPath = storage_path(config('sc.xsd_path') . 'hotelAvail.xsd');
-
-        try {
-            $xml = new \DOMDocument();
-            $xml->loadXML($request->getContent());
-
-            $xml->schemaValidate($xsdPath);
-
-            $url        = config('sc.tllincoln_api.hotel_avail');
-            $soapApiLog = [
-                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
-                'url'     => $url,
-                'command' => $command,
-                "request" => $request,
-            ];
-            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
-            $data       = [];
-            $success    = true;
-
-            if ($response !== null) {
-                $data = $this->tlLincolnSoapClient->convertResponeToArray($response);
-            } else {
-                $success = false;
-            }
-
-            if ($isWriteLog) {
-                $soapApiLog['response']   = $response;
-                $soapApiLog['is_success'] = $success;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
-
-            return response()->json([
-                'success'     => $success,
-                'data'        => $data,
-                'xmlResponse' => $response
-            ]);
-        } catch (\Exception $e) {
-            if ($isWriteLog) {
-                $soapApiLog['response']   = $e->getMessage();
-                $soapApiLog['is_success'] = false;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
      * @param $dataRequest
      * @param $setMainBodyWrapSection
      * @return void
