@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+  <xs:element name="OTA_HotelAvailRQ">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="AvailRequestSegments" minOccurs="1" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="AvailRequestSegment" minOccurs="1" maxOccurs="1">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="HotelSearchCriteria">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="Criterion" minOccurs="1" maxOccurs="99">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="HotelRef">
+                                  <xs:complexType>
+                                    <xs:attribute name="HotelCode" type="xs:string" use="required"/>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element name="StayDateRange" minOccurs="0">
+                                  <xs:complexType>
+                                    <xs:attribute name="Start" type="xs:date" use="optional"/>
+                                    <xs:attribute name="Duration" type="xs:string" use="optional"/>
+                                    <xs:attribute name="End" type="xs:date" use="optional"/>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element name="RateRange" minOccurs="0">
+                                  <xs:complexType>
+                                    <xs:attribute name="MinRate" type="xs:decimal" use="optional"/>
+                                    <xs:attribute name="MaxRate" type="xs:decimal" use="optional"/>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element name="RatePlanCandidates" minOccurs="0">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="RatePlanCandidate" maxOccurs="unbounded">
+                                        <xs:complexType>
+                                          <xs:sequence>
+                                            <xs:element name="MealsIncluded" minOccurs="0">
+                                              <xs:complexType>
+                                                <xs:attribute name="Breakfast" type="xs:boolean" use="optional"/>
+                                                <xs:attribute name="Lunch" type="xs:boolean" use="optional"/>
+                                                <xs:attribute name="Dinner" type="xs:boolean" use="optional"/>
+                                              </xs:complexType>
+                                            </xs:element>
+                                          </xs:sequence>
+                                          <xs:attribute name="RatePlanType" type="xs:string" use="optional"/>
+                                          <xs:attribute name="RatePlanCode" type="xs:string" use="optional"/>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element name="RoomStayCandidates" minOccurs="0">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="RoomStayCandidate" maxOccurs="99">
+                                        <xs:complexType>
+                                          <xs:sequence>
+                                            <xs:element name="GuestCounts" minOccurs="0">
+                                              <xs:complexType>
+                                                <xs:sequence>
+                                                  <xs:element name="GuestCount" maxOccurs="unbounded">
+                                                    <xs:complexType>
+                                                      <xs:attribute name="AgeQualifyingCode" type="xs:string" use="required"/>
+                                                      <xs:attribute name="Count" type="xs:integer" use="required"/>
+                                                    </xs:complexType>
+                                                  </xs:element>
+                                                </xs:sequence>
+                                              </xs:complexType>
+                                            </xs:element>
+                                          </xs:sequence>
+                                          <xs:attribute name="RoomTypeCode" type="xs:string" use="optional"/>
+                                          <xs:attribute name="BedTypeCode" type="xs:string" use="optional"/>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                              </xs:sequence>
+                              <xs:attribute name="NonSmoking" type="xs:boolean" use="optional"/>
+                              <xs:attribute name="Quantity" type="xs:integer" use="optional"/>
+                              <xs:attribute name="EffectiveDate" type="xs:date" use="optional"/>
+                              <xs:attribute name="ExpireDate" type="xs:date" use="optional"/>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                  <xs:attribute name="AvailReqType" type="xs:string" use="optional"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="Version" type="xs:decimal" use="optional"/>
+      <xs:attribute name="PrimaryLangID" type="xs:language" use="optional"/>
+      <xs:attribute name="SummaryOnly" type="xs:boolean" use="optional"/>
+      <xs:attribute name="AvailRatesOnly" type="xs:boolean" use="optional"/>
+      <xs:attribute name="HotelStayOnly" type="xs:boolean" use="optional"/>
+      <xs:attribute name="RateDetailsInd" type="xs:boolean" use="optional"/>
+      <xs:attribute name="PricingMethod" type="xs:string" use="optional"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

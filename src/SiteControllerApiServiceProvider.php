@@ -72,6 +72,11 @@ class SiteControllerApiServiceProvider extends ServiceProvider
             __DIR__ . '/Console/Commands/' => app_path('Console/Commands'),
         ], 'sc-api-commands');
 
+        // public file xsd
+        $this->publishes([
+            __DIR__ . '/helper/xsd/' => app_path('helper/xsd'),
+        ], 'sc-api-commands');
+
         $this->app['router']->aliasMiddleware('api.sc.auth', ScApiAuth::class);
 
         //// publish model
