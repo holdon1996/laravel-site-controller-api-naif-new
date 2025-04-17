@@ -4,6 +4,8 @@ namespace ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln;
 
 use ThachVd\LaravelSiteControllerApi\Models\ScTlLincolnSoapApiLog;
 use ThachVd\LaravelSiteControllerApi\Models\TllincolnAccount;
+use ThachVd\LaravelSiteControllerApi\Models\TlLincolnPlan;
+use ThachVd\LaravelSiteControllerApi\Models\TlLincolnRoomType;
 use ThachVd\LaravelSiteControllerApi\Services\Sc\Xml2Array\Xml2Array;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -42,6 +44,199 @@ class TlLincolnSoapService
         $this->tlLincolnSoapClient = $tlLincolnSoapClient;
         $this->tlLincolnSoapBody   = $tlLincolnSoapBody;
         $this->formatSoapArrayBody   = $formatSoapArrayBody;
+    }
+
+    /**
+     * @param Request $request
+     * @return void
+     */
+    public function getRoomType(Request $request) {
+        $searchResult = $this->searchRoomType($request);
+        if ($searchResult['success'] === false) {
+            return response()->json([
+                'success'     => false,
+                'message'     => $searchResult['message'] ?? 'No data found',
+            ]);
+        }
+
+        $hotelInfos = $this->wrapToArray($searchResult['data']);
+        try {
+            // start import data to DB
+            $dataSearch = ['tllincoln_hotel_id', 'tllincoln_roomtype_code'];
+            $dataUpdate = [];
+            foreach ($hotelInfos as $hotelInfo) {
+                $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
+                foreach ($hotelInfo['tllRmTypeInfos'] as $room) {
+                    $tempData = [];
+
+                    $tempData['tllincoln_hotel_id'] = $tTLincolnHotelId;
+                    $tempData['tllincoln_roomtype_status'] = $room['tllRmTypeSaleStatus'];
+                    $tempData['tllincoln_roomtype_code'] = $room['tllRmTypeCode'];
+                    $tempData['tllincoln_roomtype_name'] = $room['tllRmTypeName'];
+                    $tempData['tllincoln_roomtype_description'] = $room['tllRmTypeDescription'];
+                    $tempData['tllincoln_roomtype_min_person'] = $room['minCapacity'];
+                    $tempData['tllincoln_roomtype_max_person'] = $room['maxCapacity'];
+                    $tempData['tllincoln_roomtype_type'] = $room['rmType'];
+                    $tempData['tllincoln_roomtype_smoking'] = $room['rmFeaturesSmoking'];
+                    $tempData['tllincoln_roomtype_no_smoking'] = $room['rmFeaturesNonSmoking'];
+                    $tempData['tllincoln_roomtype_bus'] = $room['rmFeaturesNoBath'];
+                    $tempData['tllincoln_roomtype_toilet'] = $room['rmFeaturesNoWc'];
+                    $tempData['tllincoln_roomtype_internet'] = $room['rmFeaturesInternet'];
+                    $tempData['tllincoln_roomtype_flag'] = $room['tllPlanUseFlag'];
+                    $tempData['tllincoln_roomtype_update_type'] = null;
+                    $tempData['tllincoln_roomtype_code_others'] = $room['rlSalesRmTypeCode'] ?? null;
+                    $tempData['tllincoln_roomtype_updated_at'] = $this->getDateByType($room['lastDate'], 'YmdHis');
+
+                    // handle image related fields
+                    $picInfos = $this->wrapToArray($room['tllRmTypePictInfos'] ?? []);
+                    for ($i = 0; $i <= 19; $i++) {
+                        $pic = $picInfos[$i] ?? [];
+                        $no = $i === 0 ? '' : $i;
+                        $tempData["tllincoln_roomtype_image{$no}_url"] = $pic['pictUrl'] ?? null;
+                        $tempData["tllincoln_roomtype_image{$no}_caption"] = $pic['pictCaption'] ?? null;
+                        $tempData["tllincoln_roomtype_image{$no}_updated_at"] = $this->getDateByType($picInfos[$i]['pictUDate'], 'YmdHis');
+                    }
+
+                    $dataUpdate[] = $tempData;
+                }
+            }
+
+            \DB::transaction(function () use ($dataUpdate, $dataSearch) {
+                TlLincolnRoomType::upsert($dataUpdate, $dataSearch, (new TlLincolnRoomType)->getFillable());
+
+                return response()->json([
+                    'success'     => true,
+                    'data'        => $dataUpdate,
+                ]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('Get room type faild: ' . $e->getMessage());
+
+            return response()->json([
+                'success'     => false,
+                'message'     => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * @param Request $request
+     * @return void
+     */
+    public function getPlan(Request $request) {
+        $searchResult = $this->searchPlan($request);
+        if ($searchResult['success'] === false) {
+            return response()->json([
+                'success'     => false,
+                'message'     => $searchResult['message'] ?? 'No data found',
+            ]);
+        }
+
+        $hotelInfos = $this->wrapToArray($searchResult['data']);
+        try {
+            // start import data to DB
+            $dataSearch = ['tllincoln_hotel_id', 'tllincoln_plan_id', 'tllincoln_plan_room_code'];
+            $dataUpdate = [];
+            foreach ($hotelInfos as $hotelInfo) {
+                $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
+                foreach ($hotelInfo['tllPlanInfos'] as $plan) {
+                    $tempData = [];
+                    $tempData['tllincoln_hotel_id'] = $tTLincolnHotelId;
+                    $tempData['tllincoln_plan_id'] = $plan['tllPlanCode'];;
+                    $tempData['tllincoln_plan_name'] = $plan['tllPlanName'];
+                    $tempData['tllincoln_plan_description'] = $plan['tllPlanDescription'] ?? '';
+                    $tempData['tllincoln_plan_sell_time_from'] = $this->getDateByType($plan['effectiveDate'], 'Ymd');
+                    $tempData['tllincoln_plan_sell_time_to'] = $this->getDateByType($plan['expireDate'], 'Ymd');
+                    $tempData['tllincoln_plan_start_upload'] = $this->getDateByType($plan['effectiveDate'], 'Ymd');
+                    $tempData['tllincoln_plan_end_upload'] = $this->getDateByType($plan['effectiveDate'], 'Ymd');
+                    $tempData['tllincoln_plan_course_meal_breakfast'] = $plan['mealConditionlBreakfast'];
+                    $tempData['tllincoln_plan_course_meal_dinner'] = $plan['mealConditionDinner'];
+                    $tempData['tllincoln_plan_course_meal_lunch'] = $plan['mealConditionLunch'];
+                    $tempData['tllincoln_plan_accept_before_days'] = $plan['lastBookingAcptDay'];
+                    $tempData['tllincoln_plan_accept_before_time'] = $plan['lastBookingAcptTime'];
+                    $tempData['tllincoln_plan_checkin_time_from'] = $plan['checkInTimeFrom'];
+                    $tempData['tllincoln_plan_checkin_time_to'] = $plan['checkInTimeTo'];
+                    $tempData['tllincoln_plan_checkout_time'] = $plan['checkOutTime'];
+                    $tempData['tllincoln_plan_limited_quantity'] = $plan['salesCountMax'] ?? null;
+                    $tempData['tllincoln_plan_cancellation_policy'] = $plan['cancelPolicy'] ?? null;
+                    $tempData['tllincoln_plan_night_stay_from'] = $plan['minStay'] ?? null;
+                    $tempData['tllincoln_plan_night_stay_to'] = $plan['maxStay'] ?? null;
+                    $tempData['tllincoln_plan_updated_at'] = $this->getDateByType($plan['lastDate'], 'YmdHis');
+                    $tempData['tllincoln_plan_use_type'] = $plan['useKbn'];
+                    $tempData['tllincoln_plan_cancel_id'] = $plan['cancelPolicyCd'] ?? null;
+                    $tempData['tllincoln_plan_update_type'] = null; //
+                    $tempData['tllincoln_plan_tax_type'] = null; //
+
+                    // image related
+                    // handle image related fields
+                    $picInfos = $this->wrapToArray($plan['tllPlanPictInfos'] ?? []);
+                    for ($i = 1; $i <= 3; $i++) {
+                        $pic = $picInfos[$i] ?? [];
+                        $tempData["tllincoln_plan_image{$i}_url"] = $pic['pictUrl'] ?? null;
+                        $tempData["tllincoln_plan_image{$i}_caption"] = $pic['pictCaption'] ?? null;
+                        $tempData["tllincoln_plan_image{$i}_updated_at"] = $this->getDateByType($pic['pictUDate'], 'YmdHis');
+                    }
+
+                    // handle additional image field
+                    for($i = 1; $i <= 18; $i++) {
+                        $tempData["tllincoln_plan_image{$i}_add_url"]= null;
+                        $tempData["tllincoln_plan_image{$i}_add_caption"] = null;
+                        $tempData["tllincoln_plan_image{$i}_add_updated_at"] = null;
+                    }
+
+                    // room related
+                    $roomInfoRelated = $this->wrapToArray($plan['rmTypeInfos']);
+                    foreach ($roomInfoRelated as $roomInfo) {
+                        $tempData['tllincoln_plan_room_code'] = $roomInfo['tllRmTypeCode'];
+                        $tempData['tllincoln_plan_room_status'] = $roomInfo['tllPlanSalesStatus'];
+                        $tempData['tllincoln_plan_min_person'] = $roomInfo['minCapacity'];
+                        $tempData['tllincoln_plan_max_person'] = $roomInfo['maxCapacity'];
+                        $tempData['tllincoln_plan_fee_child_high_accept'] = $roomInfo['upperElemAcptSet'];
+                        $tempData['tllincoln_plan_fee_child_high_count'] = $roomInfo['upperElemPrcIncl'];
+                        $tempData['tllincoln_plan_fee_child_high_value'] = $roomInfo['upperElemSetValue'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_high_unit_option'] = $roomInfo['upperElemSetType'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_low_accept'] = $roomInfo['lowerElemAcptSet'];
+                        $tempData['tllincoln_plan_fee_child_low_count'] = $roomInfo['lowerElemPrcIncl'];
+                        $tempData['tllincoln_plan_fee_child_low_value'] = $roomInfo['lowerElemSetValue'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_low_unit_option'] = $roomInfo['lowerElemSetType'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_meal_sleep_accept'] = $roomInfo['infantMealFutonAcptSet'];
+                        $tempData['tllincoln_plan_fee_child_meal_sleep_count'] = $roomInfo['infantMealFutonPrcIncl'];
+                        $tempData['tllincoln_plan_fee_child_meal_sleep_value'] = $roomInfo['infantMealFutonSetValue'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_meal_sleep_option'] = $roomInfo['infantMealFutonSetType'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_meal_accept'] = $roomInfo['infantMealAcptSet'];
+                        $tempData['tllincoln_plan_fee_child_meal_count'] = $roomInfo['infantMealPrcIncl'];
+                        $tempData['tllincoln_plan_fee_child_meal_value'] = $roomInfo['infantMealSetValue'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_meal_option'] = $roomInfo['infantMealSetType'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_sleep_accept'] = $roomInfo['infantFutonAcptSet'];
+                        $tempData['tllincoln_plan_fee_child_sleep_count'] = $roomInfo['infantFutonPrcIncl'];
+                        $tempData['tllincoln_plan_fee_child_sleep_value'] = $roomInfo['infantFutonSetValue'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_sleep_option'] = $roomInfo['infantFutonSetType'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_none_accept'] = $roomInfo['infantNoMealFutonAcptSet'];
+                        $tempData['tllincoln_plan_fee_child_none_count'] = $roomInfo['infantNoMealFutonPrcIncl'];
+                        $tempData['tllincoln_plan_fee_child_none_value'] = $roomInfo['infantNoMealFutonSetValue'] ?? null;
+                        $tempData['tllincoln_plan_fee_child_none_option'] = $roomInfo['infantNoMealFutonSetType'] ?? null;
+
+                        $dataUpdate[] = $tempData;
+                    }
+                }
+            }
+
+            \DB::transaction(function () use ($dataUpdate, $dataSearch) {
+                TlLincolnPlan::upsert($dataUpdate, $dataSearch, (new TlLincolnPlan)->getFillable());
+            });
+
+            return response()->json([
+                'success'     => true,
+                'data'        => $dataUpdate,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Get room type faild: ' . $e->getMessage());
+
+            return response()->json([
+                'success'     => false,
+                'message'     => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -900,5 +1095,31 @@ class TlLincolnSoapService
         }
 
         return compact('startDay', 'endDay');
+    }
+
+    /**
+     * Convert input(array) to dimension array with it not
+     *
+     * @param $value
+     * @return array
+     */
+    private function wrapToArray($value)
+    {
+        return (!empty($value) && isset($value[0]) && is_array($value[0])) ? $value : [$value];
+    }
+
+    /**
+     * Convert date data to expect type
+     *
+     * @param $date
+     * @param $type
+     * @return mixed
+     */
+    private function getDateByType($date, $type = 'Ymd') {
+        if (!empty($date)) {
+            return Carbon::parse($date)->format($type);
+        }
+
+        return null;
     }
 }

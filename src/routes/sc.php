@@ -8,6 +8,8 @@ Route::prefix('/api/sc')->middleware('api.sc.auth')->group(function () {
         echo "ok";
     });
     Route::prefix('/tl-lincoln')->group(function() {
+        Route::get('/room-type', [TlLincolnController::class, 'getRoomType'])->name('tllincoln-api.get-room-type');
+        Route::get('/plan', [TlLincolnController::class, 'getPlan'])->name('tllincoln-api.get-plan');
         Route::post('/empty-room', [TlLincolnController::class, 'getEmptyRoom'])->name('tllincoln-api.get-empty-room');
         Route::post('/bulk-empty-room', [TlLincolnController::class, 'getBulkEmptyRoom'])->name('tllincoln-api.get-bulk-empty-room');
         Route::post('/price-plan', [TlLincolnController::class, 'getPricePlan'])->name('tllincoln-api.get-price-plan');
