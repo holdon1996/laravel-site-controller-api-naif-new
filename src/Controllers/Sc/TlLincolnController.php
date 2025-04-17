@@ -30,6 +30,24 @@ class TlLincolnController extends Controller
 
     /**
      * @param Request $request
+     * @return mixed
+     */
+    public function getRoomType(Request $request)
+    {
+        return $this->tlLincolnService->getRoomType($request);
+    }
+
+    /**
+     * @param Request $request
+     * @return mixed
+     */
+    public function getPlan(Request $request)
+    {
+        return $this->tlLincolnService->getPlan($request);
+    }
+
+    /**
+     * @param Request $request
      * @return array|\Illuminate\Http\JsonResponse|void
      */
     public function getEmptyRoom(Request $request)
