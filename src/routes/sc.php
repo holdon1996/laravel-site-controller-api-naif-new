@@ -14,5 +14,7 @@ Route::prefix('/api/sc')->middleware('api.sc.auth')->group(function () {
         Route::post('/bulk-empty-room', [TlLincolnController::class, 'getBulkEmptyRoom'])->name('tllincoln-api.get-bulk-empty-room');
         Route::post('/price-plan', [TlLincolnController::class, 'getPricePlan'])->name('tllincoln-api.get-price-plan');
         Route::post('/bulk-price-plan', [TlLincolnController::class, 'getBulkPricePlan'])->name('tllincoln-api.get-bulk-price-plan');
+        Route::post('/search-hotel', [TlLincolnController::class, 'searchHotel'])->name('tllincoln-api.search-hotel');
+        Route::post('/search-hotel-avail', [TlLincolnController::class, 'searchHotelAvail'])->name('tllincoln-api.search-hotel-avail');
     });
 });

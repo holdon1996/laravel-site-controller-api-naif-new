@@ -120,4 +120,20 @@ class TlLincolnController extends Controller
     {
         //TODO implement cancelBooking
     }
+
+    /**
+     * @param Request $request
+     * @return array|\Illuminate\Http\JsonResponse
+     */
+    public function searchHotel(Request $request) {
+        return $this->tlLincolnService->searchHotel($request);
+    }
+
+    /**
+     * @param Request $request
+     * @return array|\Illuminate\Http\JsonResponse
+     */
+    public function searchHotelAvail(Request $request) {
+        return $this->tlLincolnService->searchHotelAvail($request);
+    }
 }

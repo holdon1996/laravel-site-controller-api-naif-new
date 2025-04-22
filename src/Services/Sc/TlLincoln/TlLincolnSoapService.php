@@ -947,24 +947,32 @@ class TlLincolnSoapService
         }
     }
 
+    /**
+     * @param Request $request
+     * @return array|\Illuminate\Http\JsonResponse
+     */
     public function searchHotelAvail(Request $request)
     {
         $file = 'hotelAvail.xsd';
         $command = 'hotelAvail';
-        $this->getHotelSearchOTA($request, $command, $file);
+        return $this->getHotelSearchOTA($request, $command, $file);
     }
 
+    /**
+     * @param Request $request
+     * @return array|\Illuminate\Http\JsonResponse
+     */
     public function searchHotel(Request $request)
     {
         $file = 'searchHotel.xsd';
         $command = 'searchHotel';
-        $this->getHotelSearchOTA($request, $command, $file);
+        return $this->getHotelSearchOTA($request, $command, $file);
     }
 
     /**
      * hotel avail
      * @param Request $request
-     * @return void
+     * @return array|\Illuminate\Http\JsonResponse
      */
     public function getHotelSearchOTA(Request $request, $command, $file)
     {
