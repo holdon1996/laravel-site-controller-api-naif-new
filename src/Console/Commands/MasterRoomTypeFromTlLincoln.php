@@ -5,6 +5,7 @@ namespace ThachVd\LaravelSiteControllerApi\Console\Commands;
 use ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln\TlLincolnService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln\TlLincolnSoapService;
 
 class MasterRoomTypeFromTlLincoln extends Command
 {
@@ -23,7 +24,7 @@ class MasterRoomTypeFromTlLincoln extends Command
     protected $description = 'Get master room type TL-Lincoln';
     protected $tlLincolnService;
 
-    public function __construct(TlLincolnService $tlLincolnService)
+    public function __construct(TlLincolnSoapService $tlLincolnService)
     {
         parent::__construct();
         $this->tlLincolnService = $tlLincolnService;
@@ -36,7 +37,12 @@ class MasterRoomTypeFromTlLincoln extends Command
     {
         Log::info("■■■ MasterRoomTypeFromTlLincoln Start ■■■");
         $this->info("■■■ MasterRoomTypeFromTlLincoln Start ■■■");
-        $this->tlLincolnService->getMasterRoomType();
+
+        $time = new \DateTime();
+        $time->modify('-10 minutes');
+        $requestData['searchTimeFrom'] = $time->format('Y-m-d\TH:i:s');
+        $this->tlLincolnService->getRoomType($requestData);
+
         Log::info("■■■ MasterRoomTypeFromTlLincoln End ■■■");
         $this->info("■■■ MasterRoomTypeFromTlLincoln End ■■■");
     }

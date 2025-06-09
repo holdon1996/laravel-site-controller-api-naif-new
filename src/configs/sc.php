@@ -69,4 +69,5 @@ return [
         'using_plan_tllincoln' => 0,
     ],
     'file_xsd_patch' => 'app/helper/xsd/',
+    'default_language' => 'jpn',
 ];

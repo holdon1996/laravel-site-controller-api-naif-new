@@ -8,11 +8,11 @@ namespace ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln;
 class FormatSoapArrayBody
 {
     //API 共通室タイプマスタ / 共通プランマスタ
-    public function getArrayRoomTypeAndPlanBody($request)
+    public function getArrayRoomTypeAndPlanBody(Array $request)
     {
         $dataRequest = [
             'langInfo' => [
-                'PrimaryLangID' => $request['PrimaryLangID'] ?? '',
+                'PrimaryLangID' => $request['PrimaryLangID'] ?? config('sc.default_language'),
             ],
             'hotelInfos' => $request['hotelInfos'] ?? '',
             'timeInfo' => [

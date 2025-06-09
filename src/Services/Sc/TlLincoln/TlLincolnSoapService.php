@@ -47,27 +47,39 @@ class TlLincolnSoapService
     }
 
     /**
-     * @param Request $request
+     * @param $request
      * @return void
      */
-    public function getRoomType(Request $request) {
+    public function getRoomType(Array $request = []) {
         $searchResult = $this->searchRoomType($request);
-        if ($searchResult['success'] === false) {
-            return response()->json([
-                'success'     => false,
-                'message'     => $searchResult['message'] ?? 'No data found',
-            ]);
+        if (empty($searchResult)) {
+            return;
         }
 
-        $hotelInfos = $this->wrapToArray($searchResult['data']);
+        $hotelInfos = $this->wrapToArray($searchResult);
+
         try {
             // start import data to DB
-            $dataSearch = ['tllincoln_hotel_id', 'tllincoln_roomtype_code'];
             $dataUpdate = [];
             foreach ($hotelInfos as $hotelInfo) {
                 $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
                 foreach ($hotelInfo['tllRmTypeInfos'] as $room) {
-                    $tempData = [];
+                    if ($room['deletedFlag'] == 1) {
+                        \DB::transaction(function () use ($room, $tTLincolnHotelId) {
+                            $tlRoomtype = TlLincolnRoomType::where('tllincoln_roomtype_code', $room['tllRmTypeCode'])
+                                ->where('tllincoln_hotel_id', $tTLincolnHotelId)
+                                ->first();
+
+                            if ($tlRoomtype) {
+                                $tlRoomtype->update([
+                                    'tllincoln_roomtype_updated_at' => $this->getDateByType($room['lastDate'], 'YmdHis'),
+                                    'deletedFlag' => 1
+                                ]);
+                            }
+                        });
+
+                        continue;
+                    }
 
                     $tempData['tllincoln_hotel_id'] = $tTLincolnHotelId;
                     $tempData['tllincoln_roomtype_status'] = $room['tllRmTypeSaleStatus'];
@@ -83,7 +95,7 @@ class TlLincolnSoapService
                     $tempData['tllincoln_roomtype_toilet'] = $room['rmFeaturesNoWc'];
                     $tempData['tllincoln_roomtype_internet'] = $room['rmFeaturesInternet'];
                     $tempData['tllincoln_roomtype_flag'] = $room['tllPlanUseFlag'];
-                    $tempData['tllincoln_roomtype_update_type'] = null;
+                    $tempData['tllincoln_roomtype_update_type'] = $room['deletedFlag'];
                     $tempData['tllincoln_roomtype_code_others'] = $room['rlSalesRmTypeCode'] ?? null;
                     $tempData['tllincoln_roomtype_updated_at'] = $this->getDateByType($room['lastDate'], 'YmdHis');
 
@@ -94,28 +106,19 @@ class TlLincolnSoapService
                         $no = $i === 0 ? '' : $i;
                         $tempData["tllincoln_roomtype_image{$no}_url"] = $pic['pictUrl'] ?? null;
                         $tempData["tllincoln_roomtype_image{$no}_caption"] = $pic['pictCaption'] ?? null;
-                        $tempData["tllincoln_roomtype_image{$no}_updated_at"] = $this->getDateByType($picInfos[$i]['pictUDate'], 'YmdHis');
+                        $tempData["tllincoln_roomtype_image{$no}_updated_at"] = $this->getDateByType($picInfos[$i]['pictUDate'] ?? null, 'YmdHis') ?? null;
                     }
 
                     $dataUpdate[] = $tempData;
                 }
             }
 
+            $dataSearch = ['tllincoln_hotel_id', 'tllincoln_roomtype_code'];
             \DB::transaction(function () use ($dataUpdate, $dataSearch) {
                 TlLincolnRoomType::upsert($dataUpdate, $dataSearch, (new TlLincolnRoomType)->getFillable());
-
-                return response()->json([
-                    'success'     => true,
-                    'data'        => $dataUpdate,
-                ]);
             });
         } catch (\Exception $e) {
             \Log::error('Get room type faild: ' . $e->getMessage());
-
-            return response()->json([
-                'success'     => false,
-                'message'     => $e->getMessage()
-            ]);
         }
     }
 
@@ -757,10 +760,10 @@ class TlLincolnSoapService
 
     /**
      * search room type
-     * @param Request $request
+     * @param $request
      * @return void
      */
-    public function searchRoomType($request)
+    public function searchRoomType(Array $request)
     {
         $isWriteLog = config('sc.is_write_log');
         $command    = 'readRmType';
