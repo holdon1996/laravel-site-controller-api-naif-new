@@ -14,7 +14,7 @@ This package is a simple implementation of a Laravel package that helps you crea
 
 ## Installation
 Install the package via composer:
-``` composer require thachvd/laravel-site-controller-api-naif```
+``` composer require thachvd/laravel-site-controller-api-naif-new```
 
 in Laravel old version maybe you need to add service provider to config/app.php
 ```
