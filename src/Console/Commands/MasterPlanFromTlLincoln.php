@@ -5,6 +5,7 @@ namespace ThachVd\LaravelSiteControllerApi\Console\Commands;
 use ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln\TlLincolnService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln\TlLincolnSoapService;
 
 class MasterPlanFromTlLincoln extends Command
 {
@@ -24,7 +25,7 @@ class MasterPlanFromTlLincoln extends Command
 
     protected $tlLincolnService;
 
-    public function __construct(TlLincolnService $tlLincolnService)
+    public function __construct(TlLincolnSoapService $tlLincolnService)
     {
         parent::__construct();
         $this->tlLincolnService = $tlLincolnService;
@@ -37,7 +38,10 @@ class MasterPlanFromTlLincoln extends Command
     {
         Log::info("■■■ MasterPlanFromTlLincoln Start ■■■");
         $this->info("■■■ MasterPlanFromTlLincoln Start ■■■");
-        $this->tlLincolnService->getMasterPlan();
+        $time = new \DateTime();
+        $time->modify('-10 minutes');
+        $requestData['searchTimeFrom'] = $time->format('Y-m-d\TH:i:s');
+        $this->tlLincolnService->getPlan($requestData);
         Log::info("■■■ MasterPlanFromTlLincoln End ■■■");
         $this->info("■■■ MasterPlanFromTlLincoln End ■■■");
     }

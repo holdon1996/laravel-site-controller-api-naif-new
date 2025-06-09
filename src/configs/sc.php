@@ -70,4 +70,6 @@ return [
     ],
     'file_xsd_patch' => 'app/helper/xsd/',
     'default_language' => 'jpn',
+    'record_deleted' => 1,
+    'datetime_format' => 'YmdHis',
 ];

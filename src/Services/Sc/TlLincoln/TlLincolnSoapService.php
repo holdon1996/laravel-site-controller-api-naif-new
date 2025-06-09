@@ -64,7 +64,7 @@ class TlLincolnSoapService
             foreach ($hotelInfos as $hotelInfo) {
                 $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
                 foreach ($hotelInfo['tllRmTypeInfos'] as $room) {
-                    if ($room['deletedFlag'] == 1) {
+                    if ($room['deletedFlag'] == config('sc.record_deleted')) {
                         \DB::transaction(function () use ($room, $tTLincolnHotelId) {
                             $tlRoomtype = TlLincolnRoomType::where('tllincoln_roomtype_code', $room['tllRmTypeCode'])
                                 ->where('tllincoln_hotel_id', $tTLincolnHotelId)
@@ -72,8 +72,8 @@ class TlLincolnSoapService
 
                             if ($tlRoomtype) {
                                 $tlRoomtype->update([
-                                    'tllincoln_roomtype_updated_at' => $this->getDateByType($room['lastDate'], 'YmdHis'),
-                                    'deletedFlag' => 1
+                                    'tllincoln_roomtype_updated_at' => $this->getDateByType($room['lastDate'], config('sc.datetime_format')),
+                                    'tllincoln_roomtype_update_type' => config('sc.record_deleted')
                                 ]);
                             }
                         });
@@ -97,7 +97,7 @@ class TlLincolnSoapService
                     $tempData['tllincoln_roomtype_flag'] = $room['tllPlanUseFlag'];
                     $tempData['tllincoln_roomtype_update_type'] = $room['deletedFlag'];
                     $tempData['tllincoln_roomtype_code_others'] = $room['rlSalesRmTypeCode'] ?? null;
-                    $tempData['tllincoln_roomtype_updated_at'] = $this->getDateByType($room['lastDate'], 'YmdHis');
+                    $tempData['tllincoln_roomtype_updated_at'] = $this->getDateByType($room['lastDate'], config('sc.datetime_format'));
 
                     // handle image related fields
                     $picInfos = $this->wrapToArray($room['tllRmTypePictInfos'] ?? []);
@@ -106,7 +106,7 @@ class TlLincolnSoapService
                         $no = $i === 0 ? '' : $i;
                         $tempData["tllincoln_roomtype_image{$no}_url"] = $pic['pictUrl'] ?? null;
                         $tempData["tllincoln_roomtype_image{$no}_caption"] = $pic['pictCaption'] ?? null;
-                        $tempData["tllincoln_roomtype_image{$no}_updated_at"] = $this->getDateByType($picInfos[$i]['pictUDate'] ?? null, 'YmdHis') ?? null;
+                        $tempData["tllincoln_roomtype_image{$no}_updated_at"] = $this->getDateByType($picInfos[$i]['pictUDate'] ?? null, config('sc.datetime_format')) ?? null;
                     }
 
                     $dataUpdate[] = $tempData;
@@ -123,10 +123,10 @@ class TlLincolnSoapService
     }
 
     /**
-     * @param Request $request
+     * @param $request
      * @return void
      */
-    public function getPlan(Request $request) {
+    public function getPlan(Array $request) {
         $searchResult = $this->searchPlan($request);
         if ($searchResult['success'] === false) {
             return response()->json([
@@ -143,9 +143,26 @@ class TlLincolnSoapService
             foreach ($hotelInfos as $hotelInfo) {
                 $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
                 foreach ($hotelInfo['tllPlanInfos'] as $plan) {
+                    if ($plan['deletedFlag'] == config('sc.record_deleted')) {
+                        \DB::transaction(function () use ($plan, $tTLincolnHotelId) {
+                            $tlRoomtype = TlLincolnRoomType::where('tllincoln_plan_id', $plan['tllPlanCode'])
+                                ->where('tllincoln_hotel_id', $tTLincolnHotelId)
+                                ->first();
+
+                            if ($tlRoomtype) {
+                                $tlRoomtype->update([
+                                    'tllincoln_plan_updated_at' => $this->getDateByType($plan['lastDate'], config('sc.datetime_format')),
+                                    'tllincoln_plan_update_type' => config('sc.record_deleted')
+                                ]);
+                            }
+                        });
+
+                        continue;
+                    }
+
                     $tempData = [];
                     $tempData['tllincoln_hotel_id'] = $tTLincolnHotelId;
-                    $tempData['tllincoln_plan_id'] = $plan['tllPlanCode'];;
+                    $tempData['tllincoln_plan_id'] = $plan['tllPlanCode'];
                     $tempData['tllincoln_plan_name'] = $plan['tllPlanName'];
                     $tempData['tllincoln_plan_description'] = $plan['tllPlanDescription'] ?? '';
                     $tempData['tllincoln_plan_sell_time_from'] = $this->getDateByType($plan['effectiveDate'], 'Ymd');
@@ -164,10 +181,10 @@ class TlLincolnSoapService
                     $tempData['tllincoln_plan_cancellation_policy'] = $plan['cancelPolicy'] ?? null;
                     $tempData['tllincoln_plan_night_stay_from'] = $plan['minStay'] ?? null;
                     $tempData['tllincoln_plan_night_stay_to'] = $plan['maxStay'] ?? null;
-                    $tempData['tllincoln_plan_updated_at'] = $this->getDateByType($plan['lastDate'], 'YmdHis');
+                    $tempData['tllincoln_plan_updated_at'] = $this->getDateByType($plan['lastDate'], config('sc.datetime_format'));
                     $tempData['tllincoln_plan_use_type'] = $plan['useKbn'];
                     $tempData['tllincoln_plan_cancel_id'] = $plan['cancelPolicyCd'] ?? null;
-                    $tempData['tllincoln_plan_update_type'] = null; //
+                    $tempData['tllincoln_plan_update_type'] = $plan['deletedFlag']; //
                     $tempData['tllincoln_plan_tax_type'] = null; //
 
                     // image related
@@ -177,7 +194,7 @@ class TlLincolnSoapService
                         $pic = $picInfos[$i] ?? [];
                         $tempData["tllincoln_plan_image{$i}_url"] = $pic['pictUrl'] ?? null;
                         $tempData["tllincoln_plan_image{$i}_caption"] = $pic['pictCaption'] ?? null;
-                        $tempData["tllincoln_plan_image{$i}_updated_at"] = $this->getDateByType($pic['pictUDate'], 'YmdHis');
+                        $tempData["tllincoln_plan_image{$i}_updated_at"] = $this->getDateByType($pic['pictUDate'], config('sc.datetime_format'));
                     }
 
                     // handle additional image field
@@ -825,17 +842,17 @@ class TlLincolnSoapService
 
     /**
      * search plan
-     * @param Request $request
+     * @param $request
      * @return void
      */
-    public function searchPlan($request)
+    public function searchPlan(Array $request)
     {
         $isWriteLog = config('sc.is_write_log');
         $command    = 'readPlan';
         // set header request
         $this->tlLincolnSoapClient->setHeaders();
         // set body request
-        $dataRequest = $this->formatSoapArrayBody->getArrayRoomTypeAndPlanBody($request);
+        $dataRequest = $this->formatSoapArrayBody->getArrayRoomTypeAndPlanBody(Array $request);
         $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
         $this->setSoapRequest($dataRequest, $command, $naifVersion);
 
