@@ -47,10 +47,10 @@ class TlLincolnSoapService
     }
 
     /**
-     * @param $request
+     * @param array $request
      * @return void
      */
-    public function getRoomType(Array $request = []) {
+    public function getRoomType(array $request = []) {
         $searchResult = $this->searchRoomType($request);
         if (empty($searchResult)) {
             return;
@@ -64,16 +64,16 @@ class TlLincolnSoapService
             foreach ($hotelInfos as $hotelInfo) {
                 $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
                 foreach ($hotelInfo['tllRmTypeInfos'] as $room) {
-                    if ($room['deletedFlag'] == config('sc.record_deleted')) {
+                    if ($room['deletedFlag'] == config('sc.record_deleted_type')) {
                         \DB::transaction(function () use ($room, $tTLincolnHotelId) {
-                            $tlRoomtype = TlLincolnRoomType::where('tllincoln_roomtype_code', $room['tllRmTypeCode'])
+                            $tlRoomType = TlLincolnRoomType::where('tllincoln_roomtype_code', $room['tllRmTypeCode'])
                                 ->where('tllincoln_hotel_id', $tTLincolnHotelId)
                                 ->first();
 
-                            if ($tlRoomtype) {
-                                $tlRoomtype->update([
+                            if ($tlRoomType) {
+                                $tlRoomType->update([
                                     'tllincoln_roomtype_updated_at' => $this->getDateByType($room['lastDate'], config('sc.datetime_format')),
-                                    'tllincoln_roomtype_update_type' => config('sc.record_deleted')
+                                    'tllincoln_roomtype_update_type' => config('sc.record_deleted_type')
                                 ]);
                             }
                         });
@@ -123,16 +123,13 @@ class TlLincolnSoapService
     }
 
     /**
-     * @param $request
+     * @param array $request
      * @return void
      */
-    public function getPlan(Array $request) {
+    public function getPlan(array $request) {
         $searchResult = $this->searchPlan($request);
-        if ($searchResult['success'] === false) {
-            return response()->json([
-                'success'     => false,
-                'message'     => $searchResult['message'] ?? 'No data found',
-            ]);
+        if (empty($searchResult)) {
+            return;
         }
 
         $hotelInfos = $this->wrapToArray($searchResult['data']);
@@ -143,16 +140,16 @@ class TlLincolnSoapService
             foreach ($hotelInfos as $hotelInfo) {
                 $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
                 foreach ($hotelInfo['tllPlanInfos'] as $plan) {
-                    if ($plan['deletedFlag'] == config('sc.record_deleted')) {
+                    if ($plan['deletedFlag'] == config('sc.record_deleted_type')) {
                         \DB::transaction(function () use ($plan, $tTLincolnHotelId) {
-                            $tlRoomtype = TlLincolnRoomType::where('tllincoln_plan_id', $plan['tllPlanCode'])
+                            $tlPlan = TlLincolnPlan::where('tllincoln_plan_id', $plan['tllPlanCode'])
                                 ->where('tllincoln_hotel_id', $tTLincolnHotelId)
                                 ->first();
 
-                            if ($tlRoomtype) {
-                                $tlRoomtype->update([
+                            if ($tlPlan) {
+                                $tlPlan->update([
                                     'tllincoln_plan_updated_at' => $this->getDateByType($plan['lastDate'], config('sc.datetime_format')),
-                                    'tllincoln_plan_update_type' => config('sc.record_deleted')
+                                    'tllincoln_plan_update_type' => config('sc.record_deleted_type')
                                 ]);
                             }
                         });
@@ -244,18 +241,8 @@ class TlLincolnSoapService
             \DB::transaction(function () use ($dataUpdate, $dataSearch) {
                 TlLincolnPlan::upsert($dataUpdate, $dataSearch, (new TlLincolnPlan)->getFillable());
             });
-
-            return response()->json([
-                'success'     => true,
-                'data'        => $dataUpdate,
-            ]);
         } catch (\Exception $e) {
-            \Log::error('Get room type faild: ' . $e->getMessage());
-
-            return response()->json([
-                'success'     => false,
-                'message'     => $e->getMessage(),
-            ]);
+            \Log::error('Get room type fail: ' . $e->getMessage());
         }
     }
 
@@ -777,132 +764,26 @@ class TlLincolnSoapService
 
     /**
      * search room type
-     * @param $request
-     * @return void
+     * @param array $request
+     * @return array
      */
-    public function searchRoomType(Array $request)
+    public function searchRoomType(array $request): array
     {
-        $isWriteLog = config('sc.is_write_log');
-        $command    = 'readRmType';
-        // set header request
-        $this->tlLincolnSoapClient->setHeaders();
-        // set body request
-        $dataRequest = $this->formatSoapArrayBody->getArrayRoomTypeAndPlanBody($request);
-        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
-        $this->setSoapRequest($dataRequest, $command, $naifVersion);
-
-        try {
-            $url        = config('sc.tllincoln_api.search_room_type');
-            $soapApiLog = [
-                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
-                'url'     => $url,
-                'command' => $command,
-                "request" => $this->tlLincolnSoapClient->getBody(),
-            ];
-            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
-            $data       = [];
-            $success    = true;
-
-            if ($response !== null) {
-                $arrRooms = $this->tlLincolnSoapClient->convertResponeToArray($response);
-                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'])) {
-                    $data['timeInfo'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'];
-                }
-                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'])) {
-                    $data['hotelInfos'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'];
-                }
-            } else {
-                $success = false;
-            }
-
-            if ($isWriteLog) {
-                $soapApiLog['response']   = $response;
-                $soapApiLog['is_success'] = $success;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
-
-            return response()->json([
-                'success'     => $success,
-                'data'        => $data,
-                'xmlResponse' => $response
-            ]);
-        } catch (\Exception $e) {
-            if ($isWriteLog) {
-                $soapApiLog['response']   = $e->getMessage();
-                $soapApiLog['is_success'] = false;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
-        }
+        $command = 'readRmType';
+        $url = config('sc.tllincoln_api.search_room_type');
+        return $this->callApiGetData($command, $request, $url);
     }
 
     /**
      * search plan
-     * @param $request
-     * @return void
+     * @param array $request
+     * @return array
      */
-    public function searchPlan(Array $request)
+    public function searchPlan(array $request): array
     {
-        $isWriteLog = config('sc.is_write_log');
-        $command    = 'readPlan';
-        // set header request
-        $this->tlLincolnSoapClient->setHeaders();
-        // set body request
-        $dataRequest = $this->formatSoapArrayBody->getArrayRoomTypeAndPlanBody(Array $request);
-        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
-        $this->setSoapRequest($dataRequest, $command, $naifVersion);
-
-        try {
-            $url        = config('sc.tllincoln_api.search_plan');
-            $soapApiLog = [
-                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
-                'url'     => $url,
-                'command' => $command,
-                "request" => $this->tlLincolnSoapClient->getBody(),
-            ];
-            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
-            $data       = [];
-            $success    = true;
-
-            if ($response !== null) {
-                $arrRooms = $this->tlLincolnSoapClient->convertResponeToArray($response);
-                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'])) {
-                    $data['timeInfo'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'];
-                }
-                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'])) {
-                    $data['hotelInfos'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'];
-                }
-            } else {
-                $success = false;
-            }
-
-            if ($isWriteLog) {
-                $soapApiLog['response']   = $response;
-                $soapApiLog['is_success'] = $success;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
-
-            return response()->json([
-                'success'     => $success,
-                'data'        => $data,
-                'xmlResponse' => $response
-            ]);
-        } catch (\Exception $e) {
-            if ($isWriteLog) {
-                $soapApiLog['response']   = $e->getMessage();
-                $soapApiLog['is_success'] = false;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
-        }
+        $command = 'readPlan';
+        $url = config('sc.tllincoln_api.search_plan');
+        return $this->callApiGetData($command, $request, $url);
     }
 
     /**
@@ -965,6 +846,59 @@ class TlLincolnSoapService
                 'message' => $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * search room type
+     * @param string $command
+     * @param array $requestData
+     * @param string $url
+     * @return array
+     */
+    public function callApiGetData(string $command, array $requestData, string $url)
+    {
+        $responseData = [];
+        $isWriteLog = config('sc.is_write_log');
+
+        try {
+            $this->tlLincolnSoapClient->setHeaders(); // set header request
+            $dataRequest = $this->formatSoapArrayBody->getArrayRoomTypeAndPlanBody($requestData); // set body request
+
+            $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
+            $this->setSoapRequest($dataRequest, $command, $naifVersion);
+
+            $soapApiLog = [
+                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
+                'url' => $url,
+                'command' => $command,
+                "request" => $this->tlLincolnSoapClient->getBody(),
+            ];
+
+            $response = $this->tlLincolnSoapClient->callSoapApi($url);
+            if ($response !== null) {
+                $arrRooms = $this->tlLincolnSoapClient->convertResponeToArray($response);
+                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'])) {
+                    $responseData['timeInfo'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['timeInfo'];
+                }
+                if (isset($arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'])) {
+                    $responseData['hotelInfos'] = $arrRooms['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'];
+                }
+            }
+
+            if ($isWriteLog) {
+                $soapApiLog['response'] = $response;
+                $soapApiLog['is_success'] = true;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+        } catch (\Exception $e) {
+            if ($isWriteLog) {
+                $soapApiLog['response'] = $e->getMessage();
+                $soapApiLog['is_success'] = false;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+        }
+
+        return $responseData;
     }
 
     public function searchHotelAvail(Request $request)

@@ -8,7 +8,12 @@ namespace ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln;
 class FormatSoapArrayBody
 {
     //API 共通室タイプマスタ / 共通プランマスタ
-    public function getArrayRoomTypeAndPlanBody(Array $request)
+    /**
+     * search room type
+     * @param array $request
+     * @return array
+     */
+    public function getArrayRoomTypeAndPlanBody(array $request)
     {
         $dataRequest = [
             'langInfo' => [
