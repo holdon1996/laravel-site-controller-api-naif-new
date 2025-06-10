@@ -120,4 +120,13 @@ class TlLincolnController extends Controller
     {
         //TODO implement cancelBooking
     }
+
+    /**
+     * @param Request $request
+     * @return mixed
+     */
+    public function getOption(Request $request)
+    {
+        return $this->tlLincolnService->getOption($request);
+    }
 }

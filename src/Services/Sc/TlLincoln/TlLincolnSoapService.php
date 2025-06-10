@@ -1076,4 +1076,72 @@ class TlLincolnSoapService
 
         return null;
     }
+
+    /**
+     * @param Request $request
+     * @return mixed
+     */
+    public function getOption(Request $request)
+    {
+        try {
+            $searchResult = $this->searchReadOption($request);
+            if ($searchResult['success'] === false) {
+                return response()->json([
+                    'success'     => false,
+                    'message'     => $searchResult['message'] ?? 'No data found',
+                ]);
+            }
+
+            $hotelInfos = $this->wrapToArray($searchResult['data']);
+            $dataOptions = $this->processOption($hotelInfos);
+            $dataSearch = ['tllincoln_hotel_id', 'tllincoln_option_code'];
+
+            \DB::transaction(function () use ($dataOptions, $dataSearch) {
+                TlLincolnOption::upsert($dataOptions, $dataSearch, (new TlLincolnOption)->getFillable());
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $dataOptions,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @param $hotelInfo
+     * @return array
+     */
+    public function processOption($hotelInfo)
+    {
+        $dataUpdate = [];
+        foreach ($hotelInfo as $hotelInfo) {
+            $tTLincolnHotelId = $hotelInfo['tllHotelCode'];
+            foreach ($hotelInfo['optionInfos'] as $option) {
+                $tempData = [];
+                $tempData['tllincoln_hotel_id'] = $tTLincolnHotelId;
+                $tempData['tllincoln_option_status'] = $option['optionSalesStatus'];
+                $tempData['tllincoln_option_code'] = $option['optionCode'];
+                $tempData['tllincoln_option_name'] = $option['optionName'];
+                $tempData['tllincoln_option_description'] = $option['optionTextDescription'];
+                $tempData['tllincoln_option_effective_date_start'] = $option['effectiveDate'];
+                $tempData['tllincoln_option_effective_date_end'] = $option['expireDate'];
+                $tempData['booking_days_before_checkin'] = $option['lastBookinngAcptDay'];
+                $tempData['booking_time_before_checkin'] = $option['lastBookinngAcptTime'];
+                $tempData['tllincoln_option_currency'] = $option['currencyCode'];
+                $tempData['tllincoln_option_unit'] = $option['quantityUnit'];
+                $tempData['tllincoln_option_min_quantity'] = $option['minCount'];
+                $tempData['tllincoln_option_max_quantity'] = $option['maxCount'];
+//                optionPriceSwitchDate, optionPriceSwitched, currencyCodeSwitched, currencyCodeSwitched, optionPrice
+                $dataUpdate[] = $tempData;
+            }
+        }
+
+        return $dataUpdate;
+    }
+
 }

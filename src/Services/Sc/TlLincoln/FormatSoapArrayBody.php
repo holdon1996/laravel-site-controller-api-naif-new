@@ -32,7 +32,7 @@ class FormatSoapArrayBody
     {
         $dataRequest = [
             'langInfo' => [
-                'PrimaryLangID' => $request['PrimaryLangID'] ?? '',
+                'PrimaryLangID' => $request['PrimaryLangID'] ?? config('sc.default_language'),
             ],
             'hotelInfos' => $request['hotelInfos'] ?? '',
         ];
