@@ -105,11 +105,10 @@ class TlLincolnController extends Controller
 
     /**
      * @param Request $request
-     * @return null
      */
     public function createBooking(Request $request)
     {
-        return $this->tlLincolnService->createBooking($request);
+        $this->tlLincolnService->createBooking($request);
     }
 
     /**
