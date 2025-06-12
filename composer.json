@@ -3,7 +3,7 @@
     "description": "Laravel Site Controller API",
     "type": "library",
     "license": "MIT",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
