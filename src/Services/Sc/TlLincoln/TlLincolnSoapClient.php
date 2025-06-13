@@ -104,23 +104,23 @@ class TlLincolnSoapClient
 
         try {
             // send request
-            $response                = $this->client->request($this->options['method'], $url, $this->options);
-            $scApiLog                = [
-                'url'          => $url,
-                'method'       => $this->options['method'],
+            $response = $this->client->request($this->options['method'], $url, $this->options);
+            $scApiLog = [
+                'url' => $url,
+                'method' => $this->options['method'],
                 'request' => $this->options['body'] ?? [],
             ];
             $scApiLog['status_code'] = $response->getStatusCode();
-            $scApiLog['response']    = $response->getBody()->getContents();
+            $scApiLog['response'] = $response->getBody()->getContents();
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             \Log::error('API connection failed - URL: ' . $url);
             \Log::error($e);
 
             $scApiLog = [
                 'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : self::STATUS_CODE_ERROR,
-                'response'    => $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : $e->getMessage(),
-                'url'         => $url,
-                'method'      => $this->options['method'],
+                'response' => $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : $e->getMessage(),
+                'url' => $url,
+                'method' => $this->options['method'],
             ];
         } catch (\Exception $e) {
             \Log::error('API connection failed - URL: ' . $url);
@@ -128,9 +128,9 @@ class TlLincolnSoapClient
 
             $scApiLog = [
                 'status_code' => self::STATUS_CODE_ERROR,
-                'response'    => $e->getMessage(),
-                'url'         => $url,
-                'method'      => $this->options['method'],
+                'response' => $e->getMessage(),
+                'url' => $url,
+                'method' => $this->options['method'],
             ];
         }
 
@@ -148,7 +148,7 @@ class TlLincolnSoapClient
     public function convertResponeToArray($response, $body = 'S:Body')
     {
         $dataSoap = Xml2Array::toArray($response);
-        $arrSoap  = isset($dataSoap[$body]) ? $dataSoap[$body] : [];
+        $arrSoap = isset($dataSoap[$body]) ? $dataSoap[$body] : [];
 
         return $arrSoap;
     }

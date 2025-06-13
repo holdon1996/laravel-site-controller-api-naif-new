@@ -493,12 +493,14 @@ class TlLincolnSoapService
     {
         // precheck create booking
         $preCheckBookingResponse = $this->preCheckCreateBooking($request);
-        //TODO check preCheckBookingResponse success
+        if (!$preCheckBookingResponse['success']) {
+            return $preCheckBookingResponse;
+        }
 
-        // entry booking
-        $entryBookingResponse = $this->entryBooking($request);
-        // TODO check entryBookingResponse success
-        // TODO return response to client
+        $entryBooking = $this->entryBooking($request);
+        return response()->json(
+            $entryBooking,
+        );
     }
 
     /**
@@ -507,14 +509,12 @@ class TlLincolnSoapService
      */
     public function preCheckCreateBooking($request)
     {
-        $url     = config('sc.tllincoln_api.check_pre_booking_url');
+        $url = config('sc.tllincoln_api.check_pre_booking_url');
         $command = 'preBooking';
 
         $dataRequest = $this->formatSoapArrayBody->getArrayEntryBookingBody($request);
 
-        $response = $this->processBooking($url, $command, $dataRequest);
-
-        return $response;
+        return $this->processBooking($url, $command, $dataRequest);
     }
 
     /**
@@ -523,14 +523,12 @@ class TlLincolnSoapService
      */
     public function entryBooking($request)
     {
-        $url     = config('sc.tllincoln_api.entry_booking_url');
+        $url = config('sc.tllincoln_api.entry_booking_url');
         $command = 'entryBooking';
 
         $dataRequest = $this->formatSoapArrayBody->getArrayEntryBookingBody($request);
 
-        $response = $this->processBooking($url, $command, $dataRequest);
-
-        return $response;
+        return $this->processBooking($url, $command, $dataRequest);
     }
 
     /**
@@ -539,14 +537,12 @@ class TlLincolnSoapService
      */
     public function cancelBooking($request)
     {
-        $url     = config('sc.tllincoln_api.cancel_booking_url');
+        $url = config('sc.tllincoln_api.cancel_booking_url');
         $command = 'deleteBookingWithCP';
 
         $dataRequest = $this->formatSoapArrayBody->getArrayCancelBookingBody($request);
 
-        $response = $this->processBooking($url, $command, $dataRequest);
-
-        return $response;
+        return $this->processBooking($url, $command, $dataRequest);
     }
 
     /**
@@ -557,25 +553,26 @@ class TlLincolnSoapService
      */
     public function processBooking($url, $command, $request)
     {
-        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_booking';
-        $this->setSoapRequest($request, $command, $naifVersion);
         try {
+            $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_booking';
             $isWriteLog = config('sc.is_write_log');
+            $data = [];
+            $message = ["TL エラー:"];
+
             $soapApiLog = [
                 'data_id' => ScTlLincolnSoapApiLog::genDataId(),
-                'url'     => $url,
+                'url' => $url,
                 'command' => $command,
                 "request" => $this->tlLincolnSoapClient->getBody(),
             ];
-            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
-            $data       = [];
-            $success    = true;
-            $message    = ["TL エラー:"];
 
+            $this->setSoapRequest($request, $command, $naifVersion);
+
+            $response = $this->tlLincolnSoapClient->callSoapApi($url);
             if ($response !== null) {
-                $data           = Xml2Array::toArray($response);
+                $data = Xml2Array::toArray($response);
                 $commonResponse = $data['S:Body']['ns2:' . $command . 'Response'][$command . 'Result']['commonResponse'];
-                $success        = $commonResponse['resultCode'] === "True";
+                $success = $commonResponse['resultCode'] === "True";
 
                 if (!$success) {
                     if (isset($commonResponse['errorInfos']['errorMsg'])) {
@@ -596,30 +593,30 @@ class TlLincolnSoapService
             } else {
                 $success = false;
             }
-            $soapApiLog['response']   = $response;
+            $soapApiLog['response'] = $response;
             $soapApiLog['is_success'] = $success;
             if ($isWriteLog) {
                 ScTlLincolnSoapApiLog::createLog($soapApiLog);
             }
 
-            return response()->json([
-                'success'     => $success,
-                'message'     => $success ? [] : $message,
-                'data'        => $data,
+            return [
+                'success' => $success,
+                'message' => $success ? [] : $message,
+                'data' => $data,
                 'xmlResponse' => $response
-            ]);
+            ];
         } catch (\Exception $e) {
-            $soapApiLog['response']   = $e->getMessage();
+            $soapApiLog['response'] = $e->getMessage();
             $soapApiLog['is_success'] = false;
             if ($isWriteLog) {
                 ScTlLincolnSoapApiLog::createLog($soapApiLog);
             }
 
-            return response()->json([
+            return [
                 'success'     => false,
                 'message'     => $e->getMessage(),
                 'xmlResponse' => $response
-            ]);
+            ];
         }
     }
 
@@ -889,17 +886,15 @@ class TlLincolnSoapService
                 }
             }
 
-            if ($isWriteLog) {
-                $soapApiLog['response'] = $response;
-                $soapApiLog['is_success'] = true;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
+            $soapApiLog['response'] = $response;
+            $soapApiLog['is_success'] = true;
         } catch (\Exception $e) {
-            if ($isWriteLog) {
-                $soapApiLog['response'] = $e->getMessage();
-                $soapApiLog['is_success'] = false;
-                ScTlLincolnSoapApiLog::createLog($soapApiLog);
-            }
+            $soapApiLog['response'] = $e->getMessage();
+            $soapApiLog['is_success'] = false;
+        }
+
+        if ($isWriteLog) {
+            ScTlLincolnSoapApiLog::createLog($soapApiLog);
         }
 
         return $responseData;
@@ -990,18 +985,18 @@ class TlLincolnSoapService
         $this->tlLincolnSoapClient->setHeaders();
         //set param common request
         $this->tlLincolnSoapBody->setMainBodyWrapSection($setMainBodyWrapSection . 'Request');
-        $tllincolnAccount = TllincolnAccount::first();
-        $userInfo         = [
-            'agtId'       => $tllincolnAccount->agt_id,
-            'agtPassword' => $tllincolnAccount->agt_password
+        $tlLincolnAccount = TllincolnAccount::first();
+        $userInfo = [
+            'agtId' => $tlLincolnAccount->agt_id,
+            'agtPassword' => $tlLincolnAccount->agt_password
         ];
         if ($versionNaif == null) {
             $versionNaif = config('sc.tllincoln_api.xml.xmlns_type') . '_common';
         }
-        $xmlnsType        = config('sc.tllincoln_api.xml.xmlns_type');
-        $xmlnsVersionKey  = "sc.tllincoln_api.xml.$xmlnsType.$versionNaif";
-        $xmlnsVersion     = config($xmlnsVersionKey);
-        $body             = $this->tlLincolnSoapBody->generateBody(
+        $xmlnsType = config('sc.tllincoln_api.xml.xmlns_type');
+        $xmlnsVersionKey = "sc.tllincoln_api.xml.$xmlnsType.$versionNaif";
+        $xmlnsVersion = config($xmlnsVersionKey);
+        $body = $this->tlLincolnSoapBody->generateBody(
             $setMainBodyWrapSection,
             $dataRequest,
             $xmlnsType,

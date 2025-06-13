@@ -135,6 +135,7 @@ class FormatSoapArrayBody
                     'AmountClaimed' => $request['AmountClaimed'] ?? '',
                     'PointsDiscountList' => $request['PointsDiscountList'] ?? [],
                     'DepositList' => $request['DepositList'] ?? [],
+                    "CurrencyCode" => $request['CurrencyCode'] ?? '',
                 ],
                 'MemberInformation' => [
                     'MemberName' => $request['MemberName'] ?? '',
