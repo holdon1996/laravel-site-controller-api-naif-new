@@ -4,6 +4,10 @@ namespace ThachVd\LaravelSiteControllerApi\Services\Sc\TlLincoln;
 
 use ThachVd\LaravelSiteControllerApi\Models\ScTlLincolnSoapApiLog;
 use ThachVd\LaravelSiteControllerApi\Models\TllincolnAccount;
+use ThachVd\LaravelSiteControllerApi\Models\TllincolnCancelPolicy;
+use ThachVd\LaravelSiteControllerApi\Models\TllincolnCancelPolicyDetail;
+use ThachVd\LaravelSiteControllerApi\Models\TllincolnCancelPolicyNoShow;
+use ThachVd\LaravelSiteControllerApi\Models\TllincolnCancelPolicyPlan;
 use ThachVd\LaravelSiteControllerApi\Models\TlLincolnPlan;
 use ThachVd\LaravelSiteControllerApi\Models\TlLincolnRoomType;
 use ThachVd\LaravelSiteControllerApi\Services\Sc\Xml2Array\Xml2Array;
@@ -1137,6 +1141,187 @@ class TlLincolnSoapService
         }
 
         return $dataUpdate;
+    }
+
+    public function getCancelPolicy(Request $request)
+    {
+        try {
+            $searchResult = $this->searchCancelPolicy($request);
+            if ($searchResult['success'] === false) {
+                return response()->json([
+                    'success'     => false,
+                    'message'     => $searchResult['message'] ?? 'No data found',
+                ]);
+            }
+
+            $hotelInfos = $this->wrapToArray($searchResult['data']);
+            $dataCancelPolicy = $this->processCancelPolicy($hotelInfos);
+
+            \DB::transaction(function () use (&$dataCancelPolicy) {
+                // Upsert main table
+                TllincolnCancelPolicy::upsert(
+                    $dataCancelPolicy['info'],
+                    ['tllincoln_hotel_code', 'tllincoln_cancel_policy_code'],
+                    (new TllincolnCancelPolicy)->getFillable()
+                );
+
+                // Get id by (hotel_code, policy_code)
+                $policyIds = TllincolnCancelPolicy::where(function ($query) use ($dataCancelPolicy) {
+                    foreach ($dataCancelPolicy['info'] as $info) {
+                        $query->orWhere(function ($subQuery) use ($info) {
+                            $subQuery->where('tllincoln_hotel_code', $info['tllincoln_hotel_code'])
+                                ->where('tllincoln_cancel_policy_code', $info['tllincoln_cancel_policy_code']);
+                        });
+                    }
+                })->get()->keyBy(fn($item) => $item->tllincoln_hotel_code . '_' . $item->tllincoln_cancel_policy_code);
+
+                // Add the corresponding id of the cancel policy and remove the 2 fields tllincoln_hotel_code,
+                // tllincoln_cancel_policy_code
+                $policyIdMap = [];
+
+                foreach (['detail', 'plan'] as $type) {
+                    foreach ($dataCancelPolicy[$type] as &$item) {
+                        $key = $item['tllincoln_hotel_code'] . '_' . $item['tllincoln_cancel_policy_code'];
+                        $policyId = $policyIds[$key]->id ?? null;
+                        if ($policyId) {
+                            $item['tllincoln_cancel_policy_id'] = $policyId;
+                            $policyIdMap[$policyId] = $policyId;
+                        }
+                        unset($item['tllincoln_hotel_code'], $item['tllincoln_cancel_policy_code']);
+                    }
+                }
+
+                // delete old data with tllincoln_cancel_policy_id
+                TllincolnCancelPolicyDetail::whereIn('tllincoln_cancel_policy_id', $policyIdMap)->delete();
+                TllincolnCancelPolicyPlan::whereIn('tllincoln_cancel_policy_id', $policyIdMap)->delete();
+
+                // Insert new data witd tllincoln_cancel_policy_id
+                if (!empty($dataCancelPolicy['detail'])) {
+                    TllincolnCancelPolicyDetail::insert($dataCancelPolicy['detail']);
+                }
+
+                if (!empty($dataCancelPolicy['no_show'])) {
+                    TllincolnCancelPolicyNoShow::insert($dataCancelPolicy['no_show']);
+                }
+
+                if (!empty($dataCancelPolicy['plan'])) {
+                    TllincolnCancelPolicyPlan::insert($dataCancelPolicy['plan']);
+                }
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $hotelInfos,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function processCancelPolicy($hotelInfo)
+    {
+        $dataUpdateInfo = [];
+        $dataUpdateDetail = [];
+        $dataUpdateNoShow = [];
+        $dataUpdatePlan = [];
+        foreach ($hotelInfo as $hotelInfo) {
+            $tTLincolnHotelCode = $hotelInfo['tllHotelCode'];
+            foreach ($hotelInfo['cancelPolicyInfos'] as $cancelPolicyInfo) {
+                $policyCode = $cancelPolicyInfo['cancelPolicyCode'];
+                $tempDataInfo['tllincoln_hotel_code'] = $tTLincolnHotelCode;
+                $tempDataInfo['tllincoln_cancel_policy_code'] = $policyCode;
+                $tempDataInfo['tllincoln_cancel_policy_text'] = $cancelPolicyInfo['cancelPolicyText'] ?? null;
+                $tempDataInfo['tllincoln_percent_no_show'] = $cancelPolicyInfo['noShowPolicy']['percent'] ?? null;
+                $tempDataInfo['tllincoln_amount_no_show'] = $cancelPolicyInfo['noShowPolicy']['amount'] ?? null;
+                $tempDataInfo['tllincoln_currency_code_no_show'] = $cancelPolicyInfo['noShowPolicy']['currencyCode'] ?? null;
+                $dataUpdateInfo[] = $tempDataInfo;
+
+                foreach ($cancelPolicyInfo['cancelPolicies'] as $cancelPolicie) {
+                    $tempDataDetail['tllincoln_hotel_code'] = $tTLincolnHotelCode ?? null;
+                    $tempDataDetail['tllincoln_cancel_policy_code'] = $policyCode ?? null;
+                    $tempDataDetail['tllincoln_percent'] = $cancelPolicie['percent'] ?? null;
+                    $tempDataDetail['tllincoln_amount'] = $cancelPolicie['amount'] ?? null;
+                    $tempDataDetail['tllincoln_currency_code'] = $cancelPolicie['currencyCode'] ?? null;
+                    $tempDataDetail['tllincoln_from'] = $cancelPolicie['from'] ?? null;
+                    $tempDataDetail['tllincoln_to'] = $cancelPolicie['to'] ?? null;
+                    $dataUpdateDetail[] = $tempDataDetail;
+                }
+
+                foreach ($cancelPolicyInfo['tllPlanInfos'] as $tllPlanInfo) {
+                    $tempDataPlan['tllincoln_hotel_code'] = $tTLincolnHotelCode;
+                    $tempDataPlan['tllincoln_cancel_policy_code'] = $policyCode;
+                    $tempDataPlan['tllincoln_Plan_code'] = $tllPlanInfo['tllPlanCode'] ?? null;
+                    $dataUpdatePlan[] = $tempDataPlan;
+                }
+            }
+        }
+        $dataCancelPolicie = [
+            'info' => $dataUpdateInfo ?? [],
+            'detail' => $dataUpdateDetail ?? [],
+            'plan' => $dataUpdatePlan ?? [],
+        ];
+
+        return $dataCancelPolicie;
+    }
+
+    public function searchCancelPolicy($request)
+    {
+        $isWriteLog = config('sc.is_write_log');
+        $command    = 'cancelPolicyAcquisitionI18n';
+        // set header request
+        $this->tlLincolnSoapClient->setHeaders();
+        // set body request
+        $dataRequest = $this->formatSoapArrayBody->getArrayCancelPolicyBody($request);
+        $naifVersion = config('sc.tllincoln_api.xml.xmlns_type') . '_6000';
+        $this->setSoapRequest($dataRequest, $command, $naifVersion);
+
+        try {
+            $url        = config('sc.tllincoln_api.cancel_policy');
+            $soapApiLog = [
+                'data_id' => ScTlLincolnSoapApiLog::genDataId(),
+                'url'     => $url,
+                'command' => $command,
+                "request" => $this->tlLincolnSoapClient->getBody(),
+            ];
+            $response   = $this->tlLincolnSoapClient->callSoapApi($url);
+            $data       = [];
+            $success    = true;
+
+            if ($response !== null) {
+                $arrCancelPolicy = $this->tlLincolnSoapClient->convertResponeToArray($response);
+                if (isset($arrCancelPolicy['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'])) {
+                    $data['hotelInfos'] = $arrCancelPolicy['ns2:' . $command .'Response'][ $command .'Result']['hotelInfos'];
+                }
+            } else {
+                $success = false;
+            }
+
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $response;
+                $soapApiLog['is_success'] = $success;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success'     => $success,
+                'data'        => $data,
+                'xmlResponse' => $response
+            ]);
+        } catch (\Exception $e) {
+            if ($isWriteLog) {
+                $soapApiLog['response']   = $e->getMessage();
+                $soapApiLog['is_success'] = false;
+                ScTlLincolnSoapApiLog::createLog($soapApiLog);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
     }
 
 }
