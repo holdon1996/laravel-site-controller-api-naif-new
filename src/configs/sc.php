@@ -25,6 +25,7 @@ return [
         'search_read_option' => 'search_read_option',
         'hotel_avail' => 'hotel_avail',
         'hotel_description' => 'hotel_avail',
+        'cancel_policy' => 'cancel_policy',
         'api_file_type_const' => [
             'file_master_hotel' => 11,
             'file_master_room_type' => 12,

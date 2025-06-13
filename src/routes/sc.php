@@ -15,5 +15,6 @@ Route::prefix('/api/sc')->middleware('api.sc.auth')->group(function () {
         Route::post('/price-plan', [TlLincolnController::class, 'getPricePlan'])->name('tllincoln-api.get-price-plan');
         Route::post('/bulk-price-plan', [TlLincolnController::class, 'getBulkPricePlan'])->name('tllincoln-api.get-bulk-price-plan');
         Route::post('/option', [TlLincolnController::class, 'getOption'])->name('tllincoln-api.get-option');
+        Route::post('/cancel-policy', [TlLincolnController::class, 'getCancelPolicy'])->name('tllincoln-api.get-cancel-policy');
     });
 });

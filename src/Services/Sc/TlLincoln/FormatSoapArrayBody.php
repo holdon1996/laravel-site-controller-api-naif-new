@@ -189,4 +189,15 @@ class FormatSoapArrayBody
         ];
         return $dataRequest;
     }
+
+    //API cancel policy
+    public function getArrayCancelPolicyBody($request)
+    {
+        return [
+            'langInfo' => [
+                'PrimaryLangID' => $request['PrimaryLangID'] ?? config('sc.default_language', 'jpn'),
+            ],
+            'hotelInfos' => $request['hotelInfos'] ?? []
+        ];
+    }
 }

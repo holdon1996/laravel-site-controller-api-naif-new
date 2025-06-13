@@ -129,4 +129,13 @@ class TlLincolnController extends Controller
     {
         return $this->tlLincolnService->getOption($request);
     }
+
+    /**
+     * @param Request $request
+     * @return mixed
+     */
+    public function getCancelPolicy(Request $request)
+    {
+        return $this->tlLincolnService->getCancelPolicy($request);
+    }
 }
